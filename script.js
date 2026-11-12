@@ -241,6 +241,8 @@
   const homeScreen = $('#homeScreen');
   const gameScreen = $('#gameScreen');
   const questionPage = $('#questionPage');
+  const qBrandBtn = $('#btnQBrand');
+  const qBrandMenu = $('#qBrandMenu');
   const siteFooter = $('#siteFooter');
   const homeStatus = $('#homeStatus');
 
@@ -437,6 +439,7 @@
   function showScreen(name) {
     currentScreen = name;
     state.screen = name;
+    if (name !== 'question') closeBrandMenu(false);
     homeScreen.hidden = name !== 'home';
     gameScreen.hidden = name !== 'game';
     questionPage.hidden = name !== 'question';
@@ -924,6 +927,43 @@
     }, 60);
   }
 
+  /* ===== ١١-ب) قائمة الشعار في صفحة السؤال ===== */
+  function openBrandMenu() {
+    if (!qBrandBtn || !qBrandMenu) return;
+    qBrandMenu.hidden = false;
+    qBrandBtn.setAttribute('aria-expanded', 'true');
+    const first = focusables(qBrandMenu)[0];
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  function closeBrandMenu(restoreFocus) {
+    if (!qBrandMenu || qBrandMenu.hidden) return;
+    qBrandMenu.hidden = true;
+    if (qBrandBtn) qBrandBtn.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && qBrandBtn && qBrandBtn.isConnected &&
+        typeof qBrandBtn.focus === 'function' && qBrandBtn.getClientRects().length > 0) {
+      qBrandBtn.focus({ preventScroll: true });
+    }
+  }
+
+  function toggleBrandMenu() {
+    if (!qBrandBtn || !qBrandMenu) return;
+    if (qBrandMenu.hidden) openBrandMenu();
+    else closeBrandMenu(true);
+  }
+
+  function handleBrandMenuAction(action) {
+    closeBrandMenu(false);
+    if (action === 'board') {
+      if (currentQuestion) closeQuestion();
+      else showScreen('game');
+    } else if (action === 'help') {
+      openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
+    } else if (action === 'home') {
+      goHome();
+    }
+  }
+
   /* ===== ١٢) الإسناد والتراجع ===== */
   function snapshot() {
     return {
@@ -1119,6 +1159,47 @@
     swapTurnBtn.addEventListener('click', handleSwapTurn);
     $('#btnHome').addEventListener('click', goHome);
 
+    if (qBrandBtn && qBrandMenu) {
+      qBrandBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleBrandMenu();
+      });
+
+      qBrandMenu.addEventListener('click', function (event) {
+        const item = event.target.closest('[data-qmenu]');
+        if (!item) return;
+        handleBrandMenuAction(item.dataset.qmenu);
+      });
+
+      qBrandMenu.addEventListener('keydown', function (event) {
+        const items = focusables(qBrandMenu);
+        if (!items.length) return;
+        const index = items.indexOf(document.activeElement);
+
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          items[(index + 1) % items.length].focus();
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          items[(index - 1 + items.length) % items.length].focus();
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          items[0].focus();
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          items[items.length - 1].focus();
+        } else if (event.key === 'Tab') {
+          closeBrandMenu(false);
+        }
+      });
+
+      document.addEventListener('click', function (event) {
+        if (qBrandMenu.hidden) return;
+        if (qBrandMenu.contains(event.target) || qBrandBtn.contains(event.target)) return;
+        closeBrandMenu(false);
+      });
+    }
+
     $('#btnHelp').addEventListener('click', function () {
       openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
     });
@@ -1236,6 +1317,12 @@
     /* لوحة المفاتيح */
     document.addEventListener('keydown', function (event) {
       const top = topOverlay();
+
+      if (event.key === 'Escape' && qBrandMenu && !qBrandMenu.hidden) {
+        event.preventDefault();
+        closeBrandMenu(true);
+        return;
+      }
 
       if (event.key === 'Escape') {
         if (top) {

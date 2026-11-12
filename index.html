@@ -39,6 +39,7 @@
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.4A4 4 0 0 1 12 7a4 4 0 0 1 7 3.6c0 5-7 9.4-7 9.4z"/></symbol>
     <symbol id="i-diamond" viewBox="0 0 24 24"><path d="M12 3 21 12l-9 9-9-9z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 5.5 15.5 12 9 18.5"/></symbol>
   </svg>
 
   <div class="app">
@@ -159,9 +160,26 @@
     <!-- ===== صفحة السؤال ===== -->
     <section class="qpage" id="questionPage" hidden tabindex="-1" aria-labelledby="qText">
       <header class="qpage__bar">
-        <span class="qpage__brand">
-          <img class="qpage__brand-icon" src="logo/logo.png" alt="شعار جيم" width="34" height="34" />
-        </span>
+        <div class="qpage__brand-wrap">
+          <button class="qpage__brand" id="btnQBrand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="qBrandMenu" aria-label="خيارات">
+            <img class="qpage__brand-icon" src="logo/logo.png" alt="شعار جيم" width="34" height="34" />
+          </button>
+
+          <div class="qpage__menu" id="qBrandMenu" role="menu" aria-label="خيارات صفحة السؤال" hidden>
+            <button class="qpage__menu-item" type="button" role="menuitem" data-qmenu="board">
+              <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+              <span>العودة إلى اللوحة</span>
+            </button>
+            <button class="qpage__menu-item" type="button" role="menuitem" data-qmenu="help">
+              <svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg>
+              <span>كيفية اللعب</span>
+            </button>
+            <button class="qpage__menu-item" type="button" role="menuitem" data-qmenu="home">
+              <svg class="icon" aria-hidden="true"><use href="#i-home"></use></svg>
+              <span>الواجهة الرئيسية</span>
+            </button>
+          </div>
+        </div>
 
         <div class="qpage__timer" role="timer" aria-live="off" title="عداد تصاعدي للعرض فقط">
           <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
