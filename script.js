@@ -62,7 +62,11 @@
       icons: Object.assign({}, DEFAULT_ICONS),
       scores: { 1: 0, 2: 0 },
       played: [],
-      turn: 1
+      turn: 1,
+      screen: 'home',
+      questionId: null,
+      revealed: false,
+      questionStartedAt: 0
     };
   }
 
@@ -107,6 +111,25 @@
         next.scores[1] = 0;
         next.scores[2] = 0;
         next.played = [];
+      }
+
+      /* استعادة الشاشة المفتوحة وسؤالها حتى لا يعود التحديث للرئيسية */
+      next.screen = parsed.screen === 'game' || parsed.screen === 'question' ? parsed.screen : 'home';
+      next.questionId = questionMap.has(parsed.questionId) ? parsed.questionId : null;
+      next.revealed = Boolean(parsed.revealed);
+      next.questionStartedAt = Math.max(0, Math.floor(Number(parsed.questionStartedAt) || 0));
+
+      if (next.screen === 'question') {
+        if (!next.questionId || next.played.indexOf(next.questionId) > -1) {
+          next.screen = 'game';
+          next.questionId = null;
+          next.revealed = false;
+          next.questionStartedAt = 0;
+        }
+      } else {
+        next.questionId = null;
+        next.revealed = false;
+        next.questionStartedAt = 0;
       }
 
       return next;
@@ -338,10 +361,10 @@
     return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
   }
 
-  function startCounter() {
+  function startCounter(startedAt) {
     stopCounter();
-    counterStart = Date.now();
-    if (qTimer) qTimer.textContent = '00:00';
+    counterStart = Number(startedAt) > 0 ? Number(startedAt) : Date.now();
+    if (qTimer) qTimer.textContent = formatClock(Date.now() - counterStart);
     counterTimer = window.setInterval(function () {
       if (qTimer) qTimer.textContent = formatClock(Date.now() - counterStart);
     }, 250);
@@ -413,6 +436,7 @@
   /* ===== ٦) الشاشات والنوافذ ===== */
   function showScreen(name) {
     currentScreen = name;
+    state.screen = name;
     homeScreen.hidden = name !== 'home';
     gameScreen.hidden = name !== 'game';
     questionPage.hidden = name !== 'question';
@@ -420,6 +444,7 @@
     if (name !== 'question') stopCounter();
     if (name === 'home') updateHomeStatus();
     window.scrollTo(0, 0);
+    save();
   }
 
   function updateHomeStatus() {
@@ -804,8 +829,9 @@
     });
   }
 
-  function openQuestion(q) {
+  function openQuestion(q, options) {
     if (!q) return;
+    const opts = options || {};
     currentQuestion = q;
     revealed = false;
 
@@ -828,12 +854,32 @@
     awardPts1.textContent = '+' + formatNumber(q.points);
     awardPts2.textContent = '+' + formatNumber(q.points);
 
+    if (opts.resume) {
+      state.questionStartedAt = state.questionStartedAt > 0 ? state.questionStartedAt : Date.now();
+      if (state.revealed) {
+        revealed = true;
+        aText.textContent = q.answer;
+        answerBlock.hidden = false;
+        stageQuestion.hidden = true;
+        stageAnswer.hidden = false;
+      }
+    } else {
+      state.questionStartedAt = Date.now();
+      state.revealed = false;
+    }
+
+    state.questionId = q.id;
+
     if (qBody) qBody.scrollTop = 0;
 
     showScreen('question');
-    startCounter();
+    startCounter(state.questionStartedAt);
 
     window.setTimeout(function () {
+      if (revealed) {
+        if (questionPage) questionPage.focus({ preventScroll: true });
+        return;
+      }
       const revealBtn = $('#btnReveal');
       if (revealBtn) revealBtn.focus({ preventScroll: true });
     }, 60);
@@ -842,10 +888,12 @@
   function revealAnswer() {
     if (!currentQuestion || revealed) return;
     revealed = true;
+    state.revealed = true;
     aText.textContent = currentQuestion.answer;
     answerBlock.hidden = false;
     stageQuestion.hidden = true;
     stageAnswer.hidden = false;
+    save();
 
     requestAnimationFrame(function () {
       answerBlock.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
@@ -859,6 +907,9 @@
     currentQuestion = null;
     revealed = false;
     stopCounter();
+    state.questionId = null;
+    state.revealed = false;
+    state.questionStartedAt = 0;
     showScreen('game');
   }
 
@@ -1258,6 +1309,15 @@
     });
   }
 
+  function restoreScreen() {
+    const savedQuestion = state.questionId ? questionMap.get(state.questionId) : null;
+    if (state.screen === 'question' && savedQuestion && !playedSet.has(savedQuestion.id)) {
+      openQuestion(savedQuestion, { resume: true });
+      return;
+    }
+    showScreen(state.screen === 'game' ? 'game' : 'home');
+  }
+
   function init() {
     if (!DOORS.length) {
       boardEl.innerHTML = '<p class="empty">لم يتم العثور على بيانات الأبواب. تأكد من تحميل ملفات مجلد data/.</p>';
@@ -1283,7 +1343,7 @@
     ensureValidTurn();
     bindEvents();
     renderAll();
-    showScreen('home');
+    restoreScreen();
   }
 
   if (document.readyState === 'loading') {

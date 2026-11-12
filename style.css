@@ -171,12 +171,6 @@ h1, h2, h3, p { margin: 0; }
   line-height: 0;
 }
 
-.home__logo-icon {
-  width: clamp(62px, 10vw, 104px);
-  height: auto;
-  object-fit: contain;
-}
-
 .home__logo-text {
   width: clamp(150px, 28vw, 292px);
   height: auto;
@@ -248,12 +242,6 @@ h1, h2, h3, p { margin: 0; }
 .brand__icon {
   width: 40px;
   height: 40px;
-  object-fit: contain;
-}
-
-.brand__text {
-  width: 52px;
-  height: 46px;
   object-fit: contain;
 }
 
@@ -1505,7 +1493,6 @@ kbd {
   .topbar { padding-block: 2px 10px; gap: 8px; }
   .brand__plate { padding: 4px 8px; }
   .brand__icon { width: 34px; height: 34px; }
-  .brand__text { width: 40px; height: 36px; }
 
   .btn--sm { padding: 7px 10px; }
   .btn--sm span { display: none; }
