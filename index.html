@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#11001C" />
+  <meta name="description" content="لعبة مسابقات عربية بين فريقين يديرها مذيع اللعبة: خمسة أبواب وأسئلة متنوعة، دون أي اتصال بخادم." />
+  <title>جيم — مسابقة الأبواب الخمسة</title>
+  <link rel="icon" type="image/png" href="logo/logo.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body dir="rtl">
+  <!-- ===== أيقونات SVG ===== -->
+  <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-general" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.8 5.5 3.8 9S14.6 18.5 12 21c-2.6-2.5-3.8-5.5-3.8-9S9.4 5.5 12 3Z"/></symbol>
+    <symbol id="i-bio" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.2-3.7 4-5.6 7.5-5.6s6.3 1.9 7.5 5.6"/></symbol>
+    <symbol id="i-letters" viewBox="0 0 24 24"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></symbol>
+    <symbol id="i-images" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m21 15.5-5-5L5 20"/></symbol>
+    <symbol id="i-arabic" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v18H6.5A2.5 2.5 0 0 1 4 18.5z"/><path d="M8 3v18"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3M12 13v4M8 20h8"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.2a2.7 2.7 0 1 1 4.2 2.3c-.9.6-1.6 1.1-1.6 2.3"/><path d="M12 17.2h.01"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/><path d="M3 4v5h5"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H5.5A2.5 2.5 0 0 0 3 5.5V8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m21 15.5-5-5L5 20"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></symbol>
+  </svg>
+
+  <div class="app">
+    <h1 class="sr-only">جيم — مسابقة الأبواب الخمسة</h1>
+    <!-- ===== الشريط العلوي ===== -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__plate">
+          <img class="brand__icon" src="logo/logo.png" alt="شعار جيم" width="40" height="40" />
+          <img class="brand__text" src="logo/textlogo.png" alt="جيم" height="40" />
+        </span>
+        <span class="brand__sub">مسابقة الأبواب الخمسة</span>
+      </div>
+
+      <div class="topbar__actions">
+        <button class="icon-btn" id="btnHelp" type="button" aria-label="قواعد اللعبة" title="قواعد اللعبة">
+          <svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg>
+        </button>
+        <button class="icon-btn" id="btnFullscreen" type="button" aria-label="ملء الشاشة" title="ملء الشاشة" aria-pressed="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-expand"></use></svg>
+        </button>
+        <button class="btn btn--ghost btn--sm" id="btnNewGame" type="button" aria-label="لعبة جديدة">
+          <svg class="icon" aria-hidden="true"><use href="#i-reset"></use></svg>
+          <span>لعبة جديدة</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== لوحة النتائج (ثابتة دائمًا) ===== -->
+    <section class="scoreboard" aria-label="لوحة النتائج">
+      <article class="team team--1" id="teamCard1" data-team="1">
+        <div class="team__top">
+          <span class="team__badge" aria-hidden="true">١</span>
+          <label class="sr-only" for="teamName1">اسم الفريق الأول</label>
+          <input class="team__name" id="teamName1" value="الفريق الأول" maxlength="20" autocomplete="off" spellcheck="false" />
+          <svg class="team__mark icon" aria-hidden="true"><use href="#i-check"></use></svg>
+        </div>
+        <div class="team__score" id="score1" data-score="1">0</div>
+        <div class="team__meta">
+          <span class="team__progress-text" id="progress1">0 / 15 سؤال</span>
+          <span class="team__pts-label">نقطة</span>
+        </div>
+        <div class="team__bar" role="img" aria-label="تقدم الفريق">
+          <span class="team__bar-fill" id="bar1"></span>
+        </div>
+      </article>
+
+      <div class="scoreboard__center">
+        <span class="turn-label" id="turnLabel">الدور الآن</span>
+        <strong class="turn-name" id="turnName">الفريق الأول</strong>
+        <button class="btn btn--turn" id="btnSwapTurn" type="button" title="تبديل الدور يدويًا">
+          <svg class="icon" aria-hidden="true"><use href="#i-swap"></use></svg>
+          <span>تبديل الدور</span>
+        </button>
+        <div class="board-points">
+          <span class="board-points__label">نقاط متبقية</span>
+          <strong class="board-points__value" id="remainingPoints">6000</strong>
+        </div>
+        <span class="lock-hint" id="lockHint">
+          <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+          الأبواب المقفلة للفريق الآخر
+        </span>
+      </div>
+
+      <article class="team team--2" id="teamCard2" data-team="2">
+        <div class="team__top">
+          <span class="team__badge" aria-hidden="true">٢</span>
+          <label class="sr-only" for="teamName2">اسم الفريق الثاني</label>
+          <input class="team__name" id="teamName2" value="الفريق الثاني" maxlength="20" autocomplete="off" spellcheck="false" />
+          <svg class="team__mark icon" aria-hidden="true"><use href="#i-check"></use></svg>
+        </div>
+        <div class="team__score" id="score2" data-score="2">0</div>
+        <div class="team__meta">
+          <span class="team__progress-text" id="progress2">0 / 15 سؤال</span>
+          <span class="team__pts-label">نقطة</span>
+        </div>
+        <div class="team__bar" role="img" aria-label="تقدم الفريق">
+          <span class="team__bar-fill" id="bar2"></span>
+        </div>
+      </article>
+    </section>
+
+    <!-- شريط اللحاق -->
+    <div class="catchup" id="catchupBanner" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-bolt" id="catchupIconUse"></use></svg>
+      <p id="catchupText"></p>
+    </div>
+
+    <!-- ===== اللوحة ===== -->
+    <main class="board" id="board" aria-label="لوحة الأبواب الخمسة"></main>
+
+    <footer class="footer">
+      <div class="footer__credit">
+        <span class="footer__avatar">
+          <img src="logo/jassim.png" alt="شعار المطور" width="32" height="32" id="devLogo" />
+          <span class="footer__avatar-fallback" aria-hidden="true">ج</span>
+        </span>
+        <span>تطوير: <strong>جاسم</strong> — لعبة ثابتة تعمل دون اتصال</span>
+      </div>
+      <span class="footer__hint">الإجابة تُعلن من زر «عرض الإجابة» ثم تُسند النقاط لأحد الفريقين.</span>
+    </footer>
+  </div>
+
+  <!-- ===== نافذة السؤال / الإجابة ===== -->
+  <div class="overlay" id="questionOverlay" hidden>
+    <div class="dialog dialog--question" role="dialog" aria-modal="true" aria-labelledby="qText">
+      <header class="dialog__head">
+        <div class="q-meta">
+          <span class="q-door" id="qDoor">—</span>
+          <span class="q-points" id="qPoints">—</span>
+          <span class="q-owner" id="qOwner">—</span>
+        </div>
+        <button class="icon-btn" id="qClose" type="button" aria-label="إغلاق النافذة">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+
+      <div class="dialog__body" id="qBody">
+        <h2 class="q-text" id="qText">—</h2>
+        <div class="q-media" id="qMedia"></div>
+        <p class="q-note" id="qNote" hidden></p>
+
+        <div class="answer" id="answerBlock" hidden>
+          <span class="answer__label">الإجابة الصحيحة</span>
+          <p class="answer__text" id="aText">—</p>
+        </div>
+      </div>
+
+      <footer class="dialog__foot">
+        <div class="stage" id="stageQuestion">
+          <button class="btn btn--ghost" id="btnCancel" type="button">إلغاء</button>
+          <button class="btn btn--primary" id="btnReveal" type="button">عرض الإجابة</button>
+        </div>
+
+        <div class="stage" id="stageAnswer" hidden>
+          <p class="award__label">من فاز بهذا السؤال؟</p>
+          <div class="award-grid">
+            <button class="btn btn--award btn--award1" type="button" data-award="1">
+              <span class="award-grid__team">فاز <span data-team-name="1">الفريق الأول</span></span>
+              <span class="award-grid__pts" id="awardPts1">+0</span>
+            </button>
+            <button class="btn btn--award btn--none" type="button" data-award="none">
+              <span class="award-grid__team">لا أحد</span>
+              <span class="award-grid__pts">بدون نقاط</span>
+            </button>
+            <button class="btn btn--award btn--award2" type="button" data-award="2">
+              <span class="award-grid__team">فاز <span data-team-name="2">الفريق الثاني</span></span>
+              <span class="award-grid__pts" id="awardPts2">+0</span>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== نافذة القواعد ===== -->
+  <div class="overlay" id="helpOverlay" hidden>
+    <div class="dialog dialog--help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <header class="dialog__head">
+        <h2 class="dialog__title" id="helpTitle">قواعد اللعبة</h2>
+        <button class="icon-btn" type="button" data-close-help aria-label="إغلاق">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </header>
+      <div class="dialog__body help">
+        <ol class="help__list">
+          <li><strong>الأدوار:</strong> لكل فريق ٣ أسئلة في كل باب (٦ أسئلة لكل باب، ٣٠ سؤالًا للمسابقة). تبدأ اللعبة بدور الفريق الأول، ويتناوب الدور تلقائيًا بعد كل سؤال، ويمكن للمذيع تبديله يدويًا.</li>
+          <li><strong>سير السؤال:</strong> اضغط زر النقاط، اقرأ السؤال على الفريقين، ثم اضغط «عرض الإجابة» وحدّد من فاز: الفريق الأول أو الثاني أو «لا أحد».</li>
+          <li><strong>الغلق:</strong> الباب الذي لُعب يصبح معطّلًا ورماديًا، ويُحسب تلقائيًا عدد الأسئلة المتبقية والنقاط المتبقية على اللوحة.</li>
+          <li><strong>اللحاق:</strong> إذا أنهى فريقٌ أسئلته الخمسة عشر (٣ في كل باب) وكان متأخرًا في النقاط، يُفتح له أبواب الفريق الآخر المتبقية ليحاول اللحاق.</li>
+          <li><strong>الفوز:</strong> تنتهي اللعبة عند لعب كل الأسئلة، أو عندما يصبح فارق النقاط أكبر من مجموع النقاط المتبقية (لا يمكن تعويضه).</li>
+          <li><strong>التراجع:</strong> بعد إسناد أي سؤال تظهر رسالة فيها زر «تراجع» لتصحيح أي خطأ في الإسناد.</li>
+        </ol>
+        <div class="help__note">
+          <strong>للمذيع:</strong> يمكنك تعديل اسمَي الفريقين مباشرة من لوحة النتائج، والنتائج تُحفظ في المتصفح تلقائيًا حتى لو أُعيد تحميل الصفحة.
+        </div>
+        <p class="help__keys">اختصارات: <kbd>Esc</kbd> إغلاق النافذة — <kbd>Enter</kbd> عرض الإجابة أثناء السؤال.</p>
+      </div>
+      <footer class="dialog__foot">
+        <button class="btn btn--primary" type="button" data-close-help>فهمت، لنبدأ</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== نافذة نهاية اللعبة ===== -->
+  <div class="overlay" id="endOverlay" hidden>
+    <div class="dialog dialog--end" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+      <div class="end">
+        <span class="end__icon" aria-hidden="true">
+          <svg class="icon"><use href="#i-trophy"></use></svg>
+        </span>
+        <p class="end__reason" id="endReason">انتهت المسابقة</p>
+        <h2 class="end__title" id="endTitle">الفائز</h2>
+        <div class="end__scores" id="endScores"></div>
+        <p class="end__note" id="endNote"></p>
+      </div>
+      <footer class="dialog__foot dialog__foot--center">
+        <button class="btn btn--ghost" type="button" data-close-end>عرض اللوحة</button>
+        <button class="btn btn--ghost" type="button" id="btnEndUndo">تراجع عن آخر إسناد</button>
+        <button class="btn btn--primary" type="button" id="btnEndNewGame">لعبة جديدة</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== نافذة التأكيد ===== -->
+  <div class="overlay" id="confirmOverlay" hidden>
+    <div class="dialog dialog--confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <header class="dialog__head">
+        <h2 class="dialog__title" id="confirmTitle">تأكيد</h2>
+      </header>
+      <div class="dialog__body">
+        <p class="confirm__text" id="confirmText"></p>
+      </div>
+      <footer class="dialog__foot">
+        <button class="btn btn--ghost" type="button" data-confirm="no">إلغاء</button>
+        <button class="btn btn--danger" type="button" data-confirm="yes">تأكيد</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span class="toast__text" id="toastText"></span>
+    <button class="toast__action" id="toastAction" type="button" hidden>تراجع</button>
+  </div>
+
+  <noscript>
+    <div class="noscript">تحتاج هذه اللعبة إلى JavaScript لتعمل. الرجاء تفعيله في المتصفح.</div>
+  </noscript>
+
+  <!-- ===== قواعد بيانات الأبواب ===== -->
+  <script src="data/general.js"></script>
+  <script src="data/biographies.js"></script>
+  <script src="data/letters.js"></script>
+  <script src="data/images.js"></script>
+  <script src="data/arabic.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
