@@ -1,5 +1,5 @@
 /* ============================================================
-   جيم — مسابقة الأبواب الخمسة
+   جيم — لعبة أسئلة تنافسية بين فريقين
    منطق اللعبة (Vanilla JS، بلا أي خادم)
    ============================================================ */
 (function () {
@@ -10,6 +10,19 @@
   const STORAGE_KEY = 'jeem.quiz.state.v1';
   const TEAM_KEYS = [1, 2];
   const DEFAULT_NAMES = { 1: 'الفريق الأول', 2: 'الفريق الثاني' };
+  const TEAM_ICONS = ['star', 'crown', 'shield', 'flame', 'rocket', 'moon', 'sun', 'heart', 'diamond'];
+  const DEFAULT_ICONS = { 1: 'star', 2: 'shield' };
+  const ICON_LABELS = {
+    star: 'النجمة',
+    crown: 'التاج',
+    shield: 'الدرع',
+    flame: 'اللهب',
+    rocket: 'الصاروخ',
+    moon: 'الهلال',
+    sun: 'الشمس',
+    heart: 'القلب',
+    diamond: 'الجوهرة'
+  };
 
   const allQuestions = [];
   const questionMap = new Map();
@@ -38,15 +51,15 @@
     );
   });
 
-  const TOTAL_QUESTIONS = allQuestions.length;
   const TOTAL_PER_TEAM = allQuestions.filter(function (q) { return q.owner === 1; }).length;
   const FULL_BOARD_POINTS = allQuestions.reduce(function (sum, q) { return sum + q.points; }, 0);
 
   /* ===== ٢) الحالة ===== */
   function defaultState() {
     return {
-      v: 1,
+      v: 2,
       names: Object.assign({}, DEFAULT_NAMES),
+      icons: Object.assign({}, DEFAULT_ICONS),
       scores: { 1: 0, 2: 0 },
       played: [],
       turn: 1
@@ -56,6 +69,10 @@
   function cleanName(value, team) {
     const name = String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, 20);
     return name || DEFAULT_NAMES[team];
+  }
+
+  function cleanIcon(value, fallback) {
+    return TEAM_ICONS.indexOf(value) > -1 ? value : fallback;
   }
 
   function loadState() {
@@ -68,6 +85,11 @@
       const next = defaultState();
       next.names[1] = cleanName(parsed.names && parsed.names[1], 1);
       next.names[2] = cleanName(parsed.names && parsed.names[2], 2);
+      next.icons[1] = cleanIcon(parsed.icons && parsed.icons[1], DEFAULT_ICONS[1]);
+      next.icons[2] = cleanIcon(parsed.icons && parsed.icons[2], DEFAULT_ICONS[2]);
+      if (next.icons[1] === next.icons[2]) {
+        next.icons[2] = TEAM_ICONS.filter(function (name) { return name !== next.icons[1]; })[0];
+      }
       next.scores[1] = Math.max(0, Math.floor(Number(parsed.scores && parsed.scores[1]) || 0));
       next.scores[2] = Math.max(0, Math.floor(Number(parsed.scores && parsed.scores[2]) || 0));
       next.turn = Number(parsed.turn) === 2 ? 2 : 1;
@@ -96,6 +118,10 @@
   let state = loadState() || defaultState();
   let playedSet = new Set(state.played);
   let lastSnapshot = null;
+
+  function hasProgress() {
+    return state.scores[1] > 0 || state.scores[2] > 0 || playedSet.size > 0;
+  }
 
   function save() {
     try {
@@ -189,9 +215,17 @@
     return (root || document).querySelector(selector);
   };
 
+  const homeScreen = $('#homeScreen');
+  const gameScreen = $('#gameScreen');
+  const questionPage = $('#questionPage');
+  const siteFooter = $('#siteFooter');
+  const homeStatus = $('#homeStatus');
+
   const boardEl = $('#board');
   const score1El = $('#score1');
   const score2El = $('#score2');
+  const badge1 = $('#badge1');
+  const badge2 = $('#badge2');
   const teamCard1 = $('#teamCard1');
   const teamCard2 = $('#teamCard2');
   const teamName1 = $('#teamName1');
@@ -208,20 +242,36 @@
   const catchupText = $('#catchupText');
   const catchupIconUse = $('#catchupIconUse');
 
-  const questionOverlay = $('#questionOverlay');
-  const questionDialog = $('.dialog--question', questionOverlay);
   const qDoor = $('#qDoor');
   const qPoints = $('#qPoints');
   const qOwner = $('#qOwner');
   const qText = $('#qText');
   const qMedia = $('#qMedia');
   const qNote = $('#qNote');
+  const qBody = $('#qBody');
+  const qTimer = $('#qTimer');
   const answerBlock = $('#answerBlock');
   const aText = $('#aText');
   const stageQuestion = $('#stageQuestion');
   const stageAnswer = $('#stageAnswer');
   const awardPts1 = $('#awardPts1');
   const awardPts2 = $('#awardPts2');
+  const qsName1 = $('#qsName1');
+  const qsName2 = $('#qsName2');
+  const qsScore1 = $('#qsScore1');
+  const qsScore2 = $('#qsScore2');
+  const qsIcon1 = $('#qsIcon1');
+  const qsIcon2 = $('#qsIcon2');
+
+  const setupOverlay = $('#setupOverlay');
+  const setupName1 = $('#setupName1');
+  const setupName2 = $('#setupName2');
+  const setupIcons1 = $('#setupIcons1');
+  const setupIcons2 = $('#setupIcons2');
+  const setupBadge1 = $('#setupBadge1');
+  const setupBadge2 = $('#setupBadge2');
+  const setupRestartWrap = $('#setupRestartWrap');
+  const setupRestartChk = $('#setupRestart');
 
   const helpOverlay = $('#helpOverlay');
   const endOverlay = $('#endOverlay');
@@ -245,9 +295,13 @@
 
   let currentQuestion = null;
   let revealed = false;
+  let currentScreen = 'home';
   let toastTimer = null;
   let endTimer = null;
   let confirmResolve = null;
+  let setupDraftIcons = Object.assign({}, DEFAULT_ICONS);
+  let counterStart = 0;
+  let counterTimer = null;
   const openOverlays = new Set();
 
   /* ===== ٥) أدوات مساعدة ===== */
@@ -261,6 +315,11 @@
     return svg;
   }
 
+  function setIcon(container, name) {
+    if (!container) return;
+    container.replaceChildren(makeIcon(name));
+  }
+
   function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -270,6 +329,29 @@
 
   function formatNumber(value) {
     return Number(value || 0).toLocaleString('en-US');
+  }
+
+  function formatClock(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  function startCounter() {
+    stopCounter();
+    counterStart = Date.now();
+    if (qTimer) qTimer.textContent = '00:00';
+    counterTimer = window.setInterval(function () {
+      if (qTimer) qTimer.textContent = formatClock(Date.now() - counterStart);
+    }, 250);
+  }
+
+  function stopCounter() {
+    if (counterTimer) {
+      window.clearInterval(counterTimer);
+      counterTimer = null;
+    }
   }
 
   function animateScore(node, target) {
@@ -328,7 +410,32 @@
     }, 200);
   }
 
-  /* ===== ٦) النوافذ ===== */
+  /* ===== ٦) الشاشات والنوافذ ===== */
+  function showScreen(name) {
+    currentScreen = name;
+    homeScreen.hidden = name !== 'home';
+    gameScreen.hidden = name !== 'game';
+    questionPage.hidden = name !== 'question';
+    siteFooter.hidden = name === 'question';
+    if (name !== 'question') stopCounter();
+    if (name === 'home') updateHomeStatus();
+    window.scrollTo(0, 0);
+  }
+
+  function updateHomeStatus() {
+    if (!homeStatus) return;
+    if (!hasProgress()) {
+      homeStatus.hidden = true;
+      homeStatus.textContent = '';
+      return;
+    }
+    const status = gameStatus();
+    homeStatus.hidden = false;
+    homeStatus.textContent = 'لعبة محفوظة — ' + state.names[1] + ': ' + formatNumber(state.scores[1]) +
+      ' · ' + state.names[2] + ': ' + formatNumber(state.scores[2]) +
+      (status.over ? ' · انتهت' : '');
+  }
+
   function focusables(root) {
     return Array.prototype.slice.call(
       root.querySelectorAll(
@@ -406,11 +513,27 @@
   }
 
   /* ===== ٧) رسم لوحة النتائج ===== */
+  function renderTeamBadges() {
+    setIcon(badge1, state.icons[1]);
+    setIcon(badge2, state.icons[2]);
+  }
+
+  function renderQuestionScore() {
+    if (qsName1) qsName1.textContent = state.names[1];
+    if (qsName2) qsName2.textContent = state.names[2];
+    if (qsScore1) qsScore1.textContent = formatNumber(state.scores[1]);
+    if (qsScore2) qsScore2.textContent = formatNumber(state.scores[2]);
+    setIcon(qsIcon1, state.icons[1]);
+    setIcon(qsIcon2, state.icons[2]);
+  }
+
   function renderScoreboard() {
     const status = gameStatus();
 
     animateScore(score1El, state.scores[1]);
     animateScore(score2El, state.scores[2]);
+    renderTeamBadges();
+    renderQuestionScore();
 
     teamCard1.classList.toggle('is-active', !status.over && state.turn === 1);
     teamCard2.classList.toggle('is-active', !status.over && state.turn === 2);
@@ -491,7 +614,8 @@
 
           btn.dataset.id = q.id;
 
-          const teamDot = el('span', 'qbtn__team', owner === 1 ? '١' : '٢');
+          const teamDot = el('span', 'qbtn__team');
+          teamDot.appendChild(makeIcon(state.icons[owner]));
           const pts = el('span', 'qbtn__pts', formatNumber(q.points));
           btn.appendChild(teamDot);
           btn.appendChild(pts);
@@ -567,7 +691,71 @@
     renderBanner();
   }
 
-  /* ===== ١٠) نافذة السؤال ===== */
+  /* ===== ١٠) بيانات الفريقين ===== */
+  function renderSetupIcons() {
+    [[setupIcons1, 1], [setupIcons2, 2]].forEach(function (pair) {
+      const wrap = pair[0];
+      const team = pair[1];
+      if (!wrap) return;
+
+      const fragment = document.createDocumentFragment();
+      TEAM_ICONS.forEach(function (name) {
+        const btn = el('button', 'icon-pick');
+        btn.type = 'button';
+        btn.dataset.icon = name;
+        btn.setAttribute('aria-label', ICON_LABELS[name] || name);
+        btn.setAttribute('aria-pressed', setupDraftIcons[team] === name ? 'true' : 'false');
+        if (setupDraftIcons[team] === name) btn.classList.add('is-selected');
+        btn.appendChild(makeIcon(name));
+        fragment.appendChild(btn);
+      });
+      wrap.replaceChildren(fragment);
+
+      setIcon(team === 1 ? setupBadge1 : setupBadge2, setupDraftIcons[team]);
+    });
+  }
+
+  function selectSetupIcon(team, icon) {
+    if (TEAM_ICONS.indexOf(icon) === -1) return;
+    const opponent = other(team);
+    if (setupDraftIcons[opponent] === icon) setupDraftIcons[opponent] = setupDraftIcons[team];
+    setupDraftIcons[team] = icon;
+    renderSetupIcons();
+  }
+
+  function openSetup() {
+    setupDraftIcons = { 1: state.icons[1], 2: state.icons[2] };
+    setupName1.value = state.names[1];
+    setupName2.value = state.names[2];
+    setupRestartWrap.hidden = !hasProgress();
+    setupRestartChk.checked = false;
+    renderSetupIcons();
+    openOverlay(setupOverlay, setupName1);
+  }
+
+  function startGameFromSetup() {
+    const restart = !setupRestartWrap.hidden && setupRestartChk.checked;
+
+    state.names = {
+      1: cleanName(setupName1.value, 1),
+      2: cleanName(setupName2.value, 2)
+    };
+    state.icons = { 1: setupDraftIcons[1], 2: setupDraftIcons[2] };
+
+    if (restart) resetProgress({ save: false });
+    save();
+
+    teamName1.value = state.names[1];
+    teamName2.value = state.names[2];
+    syncTeamNameLabels();
+    renderAll();
+
+    closeOverlay(setupOverlay);
+    showScreen('game');
+    toastOpen(restart ? 'لعبة جديدة جاهزة — بالتوفيق للفريقين!' : 'بدأت اللعبة — بالتوفيق للفريقين!');
+  }
+
+  /* ===== ١١) صفحة السؤال ===== */
   function buildMedia(q) {
     let items = [];
     if (Array.isArray(q.images) && q.images.length) {
@@ -631,6 +819,7 @@
     qNote.textContent = q.hint || '';
 
     buildMedia(q);
+    renderQuestionScore();
 
     answerBlock.hidden = true;
     aText.textContent = '';
@@ -639,10 +828,15 @@
     awardPts1.textContent = '+' + formatNumber(q.points);
     awardPts2.textContent = '+' + formatNumber(q.points);
 
-    const body = $('#qBody');
-    if (body) body.scrollTop = 0;
+    if (qBody) qBody.scrollTop = 0;
 
-    openOverlay(questionOverlay, questionDialog);
+    showScreen('question');
+    startCounter();
+
+    window.setTimeout(function () {
+      const revealBtn = $('#btnReveal');
+      if (revealBtn) revealBtn.focus({ preventScroll: true });
+    }, 60);
   }
 
   function revealAnswer() {
@@ -653,24 +847,33 @@
     stageQuestion.hidden = true;
     stageAnswer.hidden = false;
 
-    const body = $('#qBody');
-    if (body) {
-      requestAnimationFrame(function () {
-        body.scrollTo({ top: body.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' });
-      });
-    }
+    requestAnimationFrame(function () {
+      answerBlock.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+    });
     window.setTimeout(function () {
-      if (questionDialog) questionDialog.focus({ preventScroll: true });
+      if (questionPage) questionPage.focus({ preventScroll: true });
     }, 30);
   }
 
-  function closeQuestion() {
-    closeOverlay(questionOverlay);
+  function finishQuestionView() {
     currentQuestion = null;
     revealed = false;
+    stopCounter();
+    showScreen('game');
   }
 
-  /* ===== ١١) الإسناد والتراجع ===== */
+  function closeQuestion() {
+    if (!currentQuestion) return;
+    const id = currentQuestion.id;
+    finishQuestionView();
+    const btn = boardEl.querySelector('.qbtn[data-id="' + id + '"]');
+    window.setTimeout(function () {
+      if (btn && !btn.disabled) btn.focus({ preventScroll: true });
+      else if (swapTurnBtn) swapTurnBtn.focus({ preventScroll: true });
+    }, 60);
+  }
+
+  /* ===== ١٢) الإسناد والتراجع ===== */
   function snapshot() {
     return {
       scores: { 1: state.scores[1], 2: state.scores[2] },
@@ -714,7 +917,7 @@
     state.turn = nextTurn();
     save();
 
-    closeQuestion();
+    finishQuestionView();
     renderAll();
 
     const message = winner
@@ -730,7 +933,7 @@
     }
   }
 
-  /* ===== ١٢) نهاية اللعبة ===== */
+  /* ===== ١٣) نهاية اللعبة ===== */
   function showEnd() {
     const result = gameStatus();
     if (!result.over) {
@@ -759,7 +962,13 @@
       const card = el('div', 'end__team');
       card.dataset.team = String(team);
       if (result.winner === team) card.classList.add('is-winner');
-      card.appendChild(el('span', 'end__team-name', names[team]));
+
+      const head = el('span', 'end__team-head');
+      const iconBox = el('span', 'end__team-icon');
+      iconBox.appendChild(makeIcon(state.icons[team]));
+      head.appendChild(iconBox);
+      head.appendChild(el('span', 'end__team-name', names[team]));
+      card.appendChild(head);
       card.appendChild(el('span', 'end__team-score', formatNumber(state.scores[team])));
       endScores.appendChild(card);
     });
@@ -769,39 +978,46 @@
       endNote.textContent = 'الفارق ' + formatNumber(diff) + ' نقطة، والمتبقي على اللوحة ' +
         formatNumber(result.remaining) + ' نقطة فقط، لذا لا يمكن تعويض الفارق.';
     } else if (result.winner) {
-      endNote.textContent = 'اكتملت الأسئلة الستة في الأبواب الخمسة بفارق ' + formatNumber(diff) + ' نقطة.';
+      endNote.textContent = 'اكتملت كل أسئلة اللوحة بفارق ' + formatNumber(diff) + ' نقطة.';
     } else {
-      endNote.textContent = 'اكتملت الأسئلة الستة في الأبواب الخمسة بالتعادل.';
+      endNote.textContent = 'اكتملت كل أسئلة اللوحة بالتعادل.';
     }
 
     openOverlay(endOverlay);
   }
 
-  /* ===== ١٣) لعبة جديدة ===== */
+  /* ===== ١٤) لعبة جديدة ===== */
+  function resetProgress(options) {
+    state.scores = { 1: 0, 2: 0 };
+    playedSet = new Set();
+    state.played = [];
+    state.turn = 1;
+    lastSnapshot = null;
+    window.clearTimeout(endTimer);
+    endTimer = null;
+    closeOverlay(endOverlay);
+    if (!options || options.save !== false) save();
+  }
+
   async function newGame() {
     const confirmed = await askConfirm({
       title: 'لعبة جديدة',
-      text: 'سيتم صفر النقاط وإعادة فتح كل الأبواب. أسماء الفريقين ستبقى كما هي.',
+      text: 'سيتم صفر النقاط وإعادة فتح كل الأبواب. أسماء الفريقين وأيقوناتهما ستبقى كما هي.',
       confirmLabel: 'ابدأ من جديد'
     });
     if (!confirmed) return;
 
-    const names = { 1: state.names[1], 2: state.names[2] };
-    state = defaultState();
-    state.names = names;
-    playedSet = new Set();
-    lastSnapshot = null;
-    window.clearTimeout(endTimer);
-    endTimer = null;
+    resetProgress({ save: false });
     save();
-    closeOverlay(endOverlay);
-    closeOverlay(questionOverlay);
+    ensureValidTurn();
+    teamName1.value = state.names[1];
+    teamName2.value = state.names[2];
     syncTeamNameLabels();
     renderAll();
     toastOpen('لعبة جديدة جاهزة — بالتوفيق للفريقين!');
   }
 
-  /* ===== ١٤) تبديل الدور ===== */
+  /* ===== ١٥) تبديل الدور والانتقال ===== */
   function handleSwapTurn() {
     const status = gameStatus();
     if (status.over) {
@@ -821,8 +1037,19 @@
     toastOpen('الدور الآن: ' + state.names[state.turn]);
   }
 
-  /* ===== ١٥) الأحداث ===== */
+  function goHome() {
+    if (currentQuestion) finishQuestionView();
+    updateHomeStatus();
+    showScreen('home');
+  }
+
+  /* ===== ١٦) الأحداث ===== */
   function bindEvents() {
+    $('#btnStart').addEventListener('click', openSetup);
+    $('#btnHowTo').addEventListener('click', function () {
+      openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
+    });
+
     boardEl.addEventListener('click', function (event) {
       const btn = event.target.closest('.qbtn');
       if (!btn || btn.disabled) return;
@@ -832,9 +1059,6 @@
 
     $('#btnReveal').addEventListener('click', revealAnswer);
 
-    $('#btnCancel').addEventListener('click', closeQuestion);
-    $('#qClose').addEventListener('click', closeQuestion);
-
     stageAnswer.addEventListener('click', function (event) {
       const btn = event.target.closest('[data-award]');
       if (!btn) return;
@@ -842,6 +1066,7 @@
     });
 
     swapTurnBtn.addEventListener('click', handleSwapTurn);
+    $('#btnHome').addEventListener('click', goHome);
 
     $('#btnHelp').addEventListener('click', function () {
       openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
@@ -852,6 +1077,28 @@
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-close-end]'), function (btn) {
       btn.addEventListener('click', function () { closeOverlay(endOverlay); });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-close-setup]'), function (btn) {
+      btn.addEventListener('click', function () { closeOverlay(setupOverlay); });
+    });
+
+    [setupIcons1, setupIcons2].forEach(function (grid, index) {
+      const team = index === 0 ? 1 : 2;
+      grid.addEventListener('click', function (event) {
+        const btn = event.target.closest('[data-icon]');
+        if (btn) selectSetupIcon(team, btn.dataset.icon);
+      });
+    });
+
+    $('#btnSetupStart').addEventListener('click', startGameFromSetup);
+    [setupName1, setupName2].forEach(function (input) {
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          startGameFromSetup();
+        }
+      });
     });
 
     $('#btnNewGame').addEventListener('click', newGame);
@@ -870,8 +1117,11 @@
     endOverlay.addEventListener('click', function (event) {
       if (event.target === endOverlay) closeOverlay(endOverlay);
     });
+    setupOverlay.addEventListener('click', function (event) {
+      if (event.target === setupOverlay) closeOverlay(setupOverlay);
+    });
 
-    /* أسماء الفريقين */
+    /* أسماء الفريقين من لوحة النتائج */
     [[teamName1, 1], [teamName2, 2]].forEach(function (pair) {
       const input = pair[0];
       const team = pair[1];
@@ -880,6 +1130,7 @@
         state.names[team] = cleanName(input.value, team);
         save();
         syncTeamNameLabels();
+        renderQuestionScore();
         if (!gameStatus().over) {
           turnNameEl.textContent = state.names[state.turn];
         }
@@ -936,16 +1187,22 @@
       const top = topOverlay();
 
       if (event.key === 'Escape') {
-        if (!top) return;
-        event.preventDefault();
-        if (top === questionOverlay) {
+        if (top) {
+          event.preventDefault();
+          if (top === endOverlay) {
+            closeOverlay(endOverlay);
+          } else if (top === helpOverlay) {
+            closeOverlay(helpOverlay);
+          } else if (top === confirmOverlay) {
+            resolveConfirm(false);
+          } else if (top === setupOverlay) {
+            closeOverlay(setupOverlay);
+          }
+          return;
+        }
+        if (currentScreen === 'question') {
+          event.preventDefault();
           closeQuestion();
-        } else if (top === endOverlay) {
-          closeOverlay(endOverlay);
-        } else if (top === helpOverlay) {
-          closeOverlay(helpOverlay);
-        } else if (top === confirmOverlay) {
-          resolveConfirm(false);
         }
         return;
       }
@@ -971,20 +1228,17 @@
         return;
       }
 
-      if ((event.key === 'Enter' || event.key === ' ') && top === questionOverlay && currentQuestion && !revealed) {
+      if ((event.key === 'Enter' || event.key === ' ') && currentScreen === 'question' && currentQuestion && !revealed) {
         const active = document.activeElement;
-        if (active === questionDialog || active === document.body) {
+        if (active === document.body || active === questionPage) {
           event.preventDefault();
           revealAnswer();
         }
       }
     });
-
-    /* حفظ إضافي عند إغلاق الصفحة */
-    window.addEventListener('beforeunload', save);
   }
 
-  /* ===== ١٦) تهيئة ===== */
+  /* ===== ١٧) تهيئة ===== */
   function validateData() {
     const seen = new Set();
     allQuestions.forEach(function (q) {
@@ -1007,6 +1261,7 @@
   function init() {
     if (!DOORS.length) {
       boardEl.innerHTML = '<p class="empty">لم يتم العثور على بيانات الأبواب. تأكد من تحميل ملفات مجلد data/.</p>';
+      showScreen('home');
       return;
     }
 
@@ -1014,26 +1269,21 @@
 
     teamName1.value = state.names[1];
     teamName2.value = state.names[2];
+    setupName1.value = state.names[1];
+    setupName2.value = state.names[2];
+    setupDraftIcons = { 1: state.icons[1], 2: state.icons[2] };
     syncTeamNameLabels();
+    renderSetupIcons();
+
     score1El.dataset.value = String(state.scores[1]);
     score2El.dataset.value = String(state.scores[2]);
     score1El.textContent = formatNumber(state.scores[1]);
     score2El.textContent = formatNumber(state.scores[2]);
 
-    if (questionDialog) questionDialog.tabIndex = -1;
-
     ensureValidTurn();
     bindEvents();
     renderAll();
-
-    /* نافذة الترحيب للفتح الأول فقط */
-    try {
-      const welcomed = window.localStorage.getItem(STORAGE_KEY + '.welcomed');
-      if (!welcomed) {
-        window.localStorage.setItem(STORAGE_KEY + '.welcomed', '1');
-        openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
-      }
-    } catch (err) { /* تجاهل */ }
+    showScreen('home');
   }
 
   if (document.readyState === 'loading') {

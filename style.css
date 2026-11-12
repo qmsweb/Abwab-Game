@@ -1,5 +1,5 @@
 /* ============================================================
-   جيم — مسابقة الأبواب الخمسة
+   جيم — لعبة أسئلة تنافسية بين فريقين
    نمط مسطّح، داكن، RTL بالكامل، بخط محلي (Elgharib).
    ============================================================ */
 
@@ -118,11 +118,105 @@ h1, h2, h3, p { margin: 0; }
 
 /* ===== الحاوية ===== */
 .app {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 1560px;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin-inline: auto;
   padding: clamp(12px, 1.8vw, 26px);
   padding-bottom: 0;
+}
+
+.home,
+.game,
+.qpage {
+  animation: page-fade 240ms ease both;
+}
+
+@keyframes page-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ===== الواجهة الرئيسية ===== */
+.home {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: clamp(28px, 8vh, 90px);
+}
+
+.home__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 3vw, 24px);
+  width: min(100%, 660px);
+  text-align: center;
+}
+
+.home__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 18px);
+  width: min(100%, 560px);
+  padding: clamp(18px, 4vw, 34px) clamp(22px, 5vw, 48px);
+  background: #FFFFFF;
+  border: 1px solid var(--line-3);
+  border-radius: 28px;
+  line-height: 0;
+}
+
+.home__logo-icon {
+  width: clamp(62px, 10vw, 104px);
+  height: auto;
+  object-fit: contain;
+}
+
+.home__logo-text {
+  width: clamp(150px, 28vw, 292px);
+  height: auto;
+  object-fit: contain;
+}
+
+.home__tagline {
+  color: var(--muted);
+  font-size: clamp(0.95rem, 2vw, 1.12rem);
+  font-weight: 500;
+}
+
+.home__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.btn--lg {
+  min-width: 180px;
+  min-height: 56px;
+  padding-inline: 28px;
+  border-radius: 14px;
+  font-size: 1.08rem;
+}
+
+.home__status {
+  padding: 8px 16px;
+  border: 1px dashed var(--line-2);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.game {
+  flex: 1;
 }
 
 /* ===== الشريط العلوي ===== */
@@ -161,14 +255,6 @@ h1, h2, h3, p { margin: 0; }
   width: 52px;
   height: 46px;
   object-fit: contain;
-}
-
-.brand__sub {
-  color: var(--muted);
-  font-size: 0.85rem;
-  padding-inline-start: 12px;
-  border-inline-start: 1px solid var(--line-2);
-  white-space: nowrap;
 }
 
 .topbar__actions {
@@ -295,15 +381,15 @@ h1, h2, h3, p { margin: 0; }
 .team__badge {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   flex: 0 0 auto;
   border-radius: 50%;
-  font-size: 0.8rem;
-  font-weight: 700;
   background: var(--tb, var(--brand));
   border: 1px solid var(--line-2);
 }
+
+.team__badge .icon { width: 15px; height: 15px; }
 
 .team--1 { --tb: var(--team-1); }
 .team--2 { --tb: var(--team-2); }
@@ -583,6 +669,8 @@ h1, h2, h3, p { margin: 0; }
   opacity: 0.85;
 }
 
+.qbtn__team .icon { width: 11px; height: 11px; }
+
 .qbtn__pts { line-height: 1; }
 
 .qbtn__flag {
@@ -637,8 +725,6 @@ h1, h2, h3, p { margin: 0; }
 .footer__avatar.is-fallback img { display: none; }
 .footer__avatar.is-fallback .footer__avatar-fallback { display: block; }
 
-.footer__hint { color: var(--muted-2); }
-
 /* ===== النوافذ ===== */
 .overlay {
   position: fixed;
@@ -670,10 +756,10 @@ h1, h2, h3, p { margin: 0; }
 }
 .overlay.is-open .dialog { transform: none; }
 
-.dialog--question { width: min(100%, 880px); }
 .dialog--help { width: min(100%, 720px); }
 .dialog--end { width: min(100%, 560px); }
 .dialog--confirm { width: min(100%, 430px); }
+.dialog--setup { width: min(100%, 680px); }
 
 .dialog__head {
   display: flex;
@@ -712,6 +798,267 @@ h1, h2, h3, p { margin: 0; }
   width: 100%;
   justify-content: flex-end;
 }
+
+/* ===== بيانات الفريقين ===== */
+.setup { gap: 14px; }
+
+.setup__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.setup__teams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setup-team {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+}
+
+.setup-team__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.setup-team__badge {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--team-1);
+  border: 1px solid var(--line-2);
+}
+
+.setup-team[data-team="2"] .setup-team__badge { background: var(--team-2); }
+.setup-team__badge .icon { width: 18px; height: 18px; }
+
+.setup-team__label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.setup-team__input {
+  width: 100%;
+  min-height: 46px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.setup-team__input::placeholder { color: var(--muted-2); }
+.setup-team__input:focus { outline: none; border-color: #FFFFFF; }
+
+.setup-team__icons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.icon-pick {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  aspect-ratio: 1;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease), color var(--ease);
+}
+.icon-pick .icon { width: 21px; height: 21px; }
+.icon-pick:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--line-3); }
+.icon-pick.is-selected {
+  background: #FFFFFF;
+  color: var(--bg);
+  border-color: #FFFFFF;
+}
+
+.setup__restart {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.setup__restart input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand-2);
+}
+
+/* ===== صفحة السؤال ===== */
+.qpage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 4px 18px;
+}
+
+.qpage__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qpage__brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.qpage__brand-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qpage__timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 15px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+}
+.qpage__timer > .icon { width: 21px; height: 21px; color: var(--muted); }
+
+.qpage__timer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.qpage__timer-label {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+#qTimer {
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  direction: ltr;
+  text-align: center;
+}
+
+.qpage__score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.qscore {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.qscore__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--team-1);
+  border: 1px solid var(--line-2);
+}
+.qscore--2 .qscore__icon { background: var(--team-2); }
+.qscore__icon .icon { width: 18px; height: 18px; }
+
+.qscore__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.qscore__score {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.qpage__vs {
+  color: var(--muted-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.qpage__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-content: safe center;
+  gap: clamp(12px, 2vw, 18px);
+  min-height: 0;
+  padding: clamp(16px, 3vw, 30px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.qpage__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+}
+
+.stage--answer { flex-direction: column; }
+
+.stage--question { justify-content: stretch; }
+.stage--question .btn { flex: 1; }
 
 /* السؤال */
 .q-meta {
@@ -983,6 +1330,25 @@ kbd {
 .end__team[data-team="2"] { background: var(--team-2); }
 .end__team.is-winner { border-color: #FFFFFF; }
 
+.end__team-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.end__team-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+}
+.end__team-icon .icon { width: 14px; height: 14px; }
+
 .end__team-name {
   display: block;
   font-size: 0.82rem;
@@ -1078,8 +1444,6 @@ kbd {
 }
 
 @media (max-width: 960px) {
-  .brand__sub { display: none; }
-
   .scoreboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
@@ -1116,6 +1480,28 @@ kbd {
 @media (max-width: 700px) {
   .app { padding: 10px; padding-bottom: 0; }
 
+  .home { padding-block: 24px; }
+  .home__logo { border-radius: 22px; }
+  .home__actions { flex-direction: column; }
+  .home__actions .btn { width: 100%; }
+  .btn--lg { min-height: 52px; font-size: 1.02rem; }
+
+  .setup__teams { grid-template-columns: minmax(0, 1fr); }
+  .setup-team { padding: 12px; }
+  .icon-pick { min-height: 42px; }
+
+  .qpage { gap: 9px; }
+  .qpage__brand { width: 38px; height: 38px; padding: 3px; }
+  .qpage__timer { padding: 6px 12px; }
+  .qpage__timer-label { display: none; }
+  .qpage__score { gap: 6px; }
+  .qscore { padding: 8px 9px; gap: 7px; }
+  .qscore__icon { width: 29px; height: 29px; }
+  .qscore__icon .icon { width: 15px; height: 15px; }
+  .qscore__name { font-size: 0.78rem; }
+  .qscore__score { font-size: 1.12rem; }
+  .qpage__body { padding: 15px 12px; }
+
   .topbar { padding-block: 2px 10px; gap: 8px; }
   .brand__plate { padding: 4px 8px; }
   .brand__icon { width: 34px; height: 34px; }
@@ -1131,7 +1517,8 @@ kbd {
   .team__name { flex: 1 1 auto; min-width: 0; font-size: 0.86rem; }
   .team__score { font-size: 2rem; }
   .team__meta { font-size: 0.68rem; }
-  .team__badge { width: 20px; height: 20px; font-size: 0.68rem; }
+  .team__badge { width: 20px; height: 20px; }
+  .team__badge .icon { width: 12px; height: 12px; }
 
   .board { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 
@@ -1158,6 +1545,8 @@ kbd {
   .board-points__label { font-size: 0.62rem; }
   .q-text { font-size: 1.2rem; }
   .media { min-height: 120px; }
+  .qpage__vs { display: none; }
+  .qpage__score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dialog__head { padding: 10px 12px; }
   .dialog__body { padding: 12px; }
   .dialog__foot { padding: 10px 12px; }
