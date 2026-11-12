@@ -6,9 +6,11 @@
   'use strict';
 
   /* ===== ١) البيانات ===== */
-  const DOORS = Array.isArray(window.JEEM_DOORS) ? window.JEEM_DOORS.slice() : [];
   const STORAGE_KEY = 'jeem.quiz.state.v1';
+  const STATE_VERSION = 4;
+  const DOORS = Array.isArray(window.JEEM_DOORS) ? window.JEEM_DOORS.slice() : [];
   const TEAM_KEYS = [1, 2];
+  const SLOT_OWNERS = [1, 2];
   const DEFAULT_NAMES = { 1: 'الفريق الأول', 2: 'الفريق الثاني' };
   const TEAM_ICONS = ['star', 'crown', 'shield', 'flame', 'rocket', 'moon', 'sun', 'heart', 'diamond'];
   const DEFAULT_ICONS = { 1: 'star', 2: 'shield' };
@@ -23,47 +25,253 @@
     heart: 'القلب',
     diamond: 'الجوهرة'
   };
+  const DIFFICULTY_ALIASES = { easy: 1, medium: 2, hard: 3, 'سهل': 1, 'متوسط': 2, 'صعب': 3 };
+
+  /* بنك الأسئلة الكامل + مجموعات المستويات لكل باب */
+  const bankMap = new Map();
+  const bankQuestions = [];
+  const pools = new Map();
+  const seenQuestionKeys = new Set();
+
+  function normalizeText(value) {
+    return String(value == null ? '' : value)
+      .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/[^\u0621-\u064Aa-zA-Z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function questionKey(q) {
+    return normalizeText(q.question) + '|' + normalizeText(q.answer);
+  }
+
+  function resolveDifficulty(raw, levels) {
+    const value = raw.difficulty != null ? raw.difficulty : raw.level;
+    if (typeof value === 'string') {
+      const alias = DIFFICULTY_ALIASES[value.trim().toLowerCase()];
+      if (alias) return alias;
+    }
+
+    const numeric = Number(value);
+    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= levels.length) return numeric;
+
+    const pointCandidate = raw.points != null ? Number(raw.points) : Number(raw.level);
+    const pointIndex = levels.indexOf(pointCandidate);
+    if (pointIndex > -1) return pointIndex + 1;
+
+    return 1;
+  }
+
+  DOORS.forEach(function (door) {
+    const levels = (Array.isArray(door.levels) ? door.levels : [100, 200, 300])
+      .map(Number)
+      .filter(function (value) { return value > 0; });
+    door.levels = Array.from(new Set(levels.length ? levels : [100, 200, 300]));
+
+    door.levels.forEach(function (points) {
+      pools.set(door.id + '|' + points, []);
+    });
+
+    const source = Array.isArray(door.bank) ? door.bank
+      : Array.isArray(door.questions) ? door.questions
+        : [];
+    const accepted = [];
+
+    source.forEach(function (raw, index) {
+      if (!raw || typeof raw !== 'object') return;
+
+      const q = Object.assign({}, raw);
+      const difficulty = resolveDifficulty(raw, door.levels);
+
+      q.difficulty = difficulty;
+      q.points = door.levels[difficulty - 1];
+      q.doorId = door.id;
+      q.doorName = door.name;
+      q.type = q.type === 'image' || q.type === 'images' ? q.type : 'text';
+      q.question = String(q.question == null ? '' : q.question).trim();
+      q.answer = String(q.answer == null ? '' : q.answer).trim();
+      q.id = String(q.id == null ? '' : q.id).trim();
+
+      if (!q.id) q.id = door.id + '-auto-' + (index + 1);
+      if (!q.question || !q.answer) {
+        console.warn('[جيم] سؤال بلا نص أو إجابة في الباب «' + door.name + '»:', q.id);
+        return;
+      }
+      if (bankMap.has(q.id)) {
+        console.warn('[جيم] معرّف سؤال مكرر (تم تجاهله):', q.id);
+        return;
+      }
+
+      const signature = questionKey(q);
+      if (seenQuestionKeys.has(signature)) {
+        console.warn('[جيم] سؤال مكرر (تم تجاهله):', q.id);
+        return;
+      }
+
+      seenQuestionKeys.add(signature);
+      bankMap.set(q.id, q);
+      bankQuestions.push(q);
+      accepted.push(q);
+      pools.get(door.id + '|' + q.points).push(q);
+    });
+
+    door.bank = accepted;
+    door.questions = accepted;
+  });
 
   const allQuestions = [];
   const questionMap = new Map();
   const doorQuestions = new Map();
   const slotMap = new Map();
+  let TOTAL_PER_TEAM = 0;
+  let FULL_BOARD_POINTS = 0;
 
-  DOORS.forEach(function (door) {
-    door.levels = Array.isArray(door.levels) && door.levels.length ? door.levels : [100, 200, 300];
-    door.questions = Array.isArray(door.questions) ? door.questions : [];
+  function slotKey(doorId, points, owner) {
+    return doorId + '|' + points + '|' + owner;
+  }
 
-    door.questions.forEach(function (q) {
-      q.doorId = door.id;
-      q.doorName = door.name;
-      q.points = Number(q.points) || 0;
-      q.owner = Number(q.owner) === 2 ? 2 : 1;
-      allQuestions.push(q);
-      questionMap.set(q.id, q);
-      slotMap.set(door.id + '|' + q.points + '|' + q.owner, q);
+  function shuffle(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = temp;
+    }
+    return copy;
+  }
+
+  /* توزيع جديد: سؤالان لكل مستوى (واحد لكل فريق) بلا أي تكرار */
+  function drawAssignments(avoidIds) {
+    const avoid = new Set((avoidIds || []).filter(Boolean).map(String));
+    const usedIds = new Set();
+    const usedKeys = new Set();
+    const assignments = {};
+    let shortfall = 0;
+
+    function eligible(q) {
+      return !usedIds.has(q.id) && !usedKeys.has(questionKey(q));
+    }
+
+    DOORS.forEach(function (door) {
+      door.levels.forEach(function (points) {
+        const levelIndex = door.levels.indexOf(points);
+        const own = (pools.get(door.id + '|' + points) || []).filter(eligible);
+        const ordered = shuffle(own.filter(function (q) { return !avoid.has(q.id); }))
+          .concat(shuffle(own.filter(function (q) { return avoid.has(q.id); })));
+        let picks = ordered.slice(0, SLOT_OWNERS.length);
+
+        /* احتياط: إن كان بنك المستوى أقل من سؤالين نكمل من بقية مستويات الباب */
+        if (picks.length < SLOT_OWNERS.length) {
+          const fallback = [];
+          door.levels.forEach(function (otherPoints) {
+            if (otherPoints === points) return;
+            fallback.push.apply(fallback, pools.get(door.id + '|' + otherPoints) || []);
+          });
+          const extras = fallback.filter(eligible).sort(function (a, b) {
+            return Math.abs(a.difficulty - (levelIndex + 1)) -
+              Math.abs(b.difficulty - (levelIndex + 1));
+          });
+          picks = picks.concat(extras.slice(0, SLOT_OWNERS.length - picks.length));
+        }
+
+        if (picks.length < SLOT_OWNERS.length) {
+          shortfall += SLOT_OWNERS.length - picks.length;
+          console.warn('[جيم] لا توجد أسئلة كافية في الباب «' + door.name + '» للمستوى ' + points + '.');
+        }
+
+        SLOT_OWNERS.forEach(function (owner, index) {
+          const chosen = picks[index];
+          if (!chosen) return;
+          assignments[slotKey(door.id, points, owner)] = chosen.id;
+          usedIds.add(chosen.id);
+          usedKeys.add(questionKey(chosen));
+        });
+      });
     });
 
-    doorQuestions.set(
-      door.id,
-      door.questions.slice().sort(function (a, b) {
-        return a.points - b.points || a.owner - b.owner;
-      })
-    );
-  });
+    return { assignments: assignments, shortfall: shortfall };
+  }
 
-  const TOTAL_PER_TEAM = allQuestions.filter(function (q) { return q.owner === 1; }).length;
-  const FULL_BOARD_POINTS = allQuestions.reduce(function (sum, q) { return sum + q.points; }, 0);
+  function applyAssignments(assignments) {
+    allQuestions.length = 0;
+    questionMap.clear();
+    slotMap.clear();
+    doorQuestions.clear();
+
+    DOORS.forEach(function (door) {
+      const active = [];
+
+      door.levels.forEach(function (points) {
+        SLOT_OWNERS.forEach(function (owner) {
+          const key = slotKey(door.id, points, owner);
+          const source = bankMap.get(assignments[key]);
+          if (!source) return;
+          if (questionMap.has(source.id)) {
+            console.warn('[جيم] السؤال نفسه وُزّع في أكثر من زر (تم تجاهل التكرار):', source.id);
+            return;
+          }
+
+          const q = Object.assign({}, source, { points: points, owner: owner });
+          allQuestions.push(q);
+          questionMap.set(q.id, q);
+          slotMap.set(key, q);
+          active.push(q);
+        });
+      });
+
+      active.sort(function (a, b) {
+        return a.points - b.points || a.owner - b.owner;
+      });
+      doorQuestions.set(door.id, active);
+    });
+
+    TOTAL_PER_TEAM = allQuestions.filter(function (q) { return q.owner === 1; }).length;
+    FULL_BOARD_POINTS = allQuestions.reduce(function (sum, q) { return sum + q.points; }, 0);
+  }
+
+  /* التحقق من توزيع محفوظ قبل إعادة استخدامه */
+  function validateAssignments(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const result = {};
+    const used = new Set();
+
+    for (let d = 0; d < DOORS.length; d += 1) {
+      const door = DOORS[d];
+      for (let l = 0; l < door.levels.length; l += 1) {
+        const points = door.levels[l];
+        for (let o = 0; o < SLOT_OWNERS.length; o += 1) {
+          const owner = SLOT_OWNERS[o];
+          const key = slotKey(door.id, points, owner);
+          const id = typeof raw[key] === 'string' ? raw[key] : '';
+          const q = bankMap.get(id);
+
+          if (!q || q.doorId !== door.id || used.has(id)) return null;
+          used.add(id);
+          result[key] = id;
+        }
+      }
+    }
+
+    return result;
+  }
 
   /* ===== ٢) الحالة ===== */
   function defaultState() {
     /* الصفحة المفتوحة يحدّدها معرّفها في الرابط، لا تُحفظ هنا */
     return {
-      v: 3,
+      v: STATE_VERSION,
       names: Object.assign({}, DEFAULT_NAMES),
       icons: Object.assign({}, DEFAULT_ICONS),
       scores: { 1: 0, 2: 0 },
       played: [],
-      turn: 1
+      turn: 1,
+      assignments: {}
     };
   }
 
@@ -76,7 +284,7 @@
     return TEAM_ICONS.indexOf(value) > -1 ? value : fallback;
   }
 
-  function loadState() {
+  function readSavedState() {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
@@ -84,6 +292,7 @@
       if (!parsed || typeof parsed !== 'object') return null;
 
       const next = defaultState();
+      next.v = Number(parsed.v) || 0;
       next.names[1] = cleanName(parsed.names && parsed.names[1], 1);
       next.names[2] = cleanName(parsed.names && parsed.names[2], 2);
       next.icons[1] = cleanIcon(parsed.icons && parsed.icons[1], DEFAULT_ICONS[1]);
@@ -94,21 +303,11 @@
       next.scores[1] = Math.max(0, Math.floor(Number(parsed.scores && parsed.scores[1]) || 0));
       next.scores[2] = Math.max(0, Math.floor(Number(parsed.scores && parsed.scores[2]) || 0));
       next.turn = Number(parsed.turn) === 2 ? 2 : 1;
-
-      const seen = new Set();
-      (Array.isArray(parsed.played) ? parsed.played : []).forEach(function (id) {
-        if (questionMap.has(id) && !seen.has(id)) {
-          seen.add(id);
-          next.played.push(id);
-        }
-      });
-
-      /* حماية من ملف محفوظ غير متوافق مع بيانات معدّلة لاحقًا */
-      if (next.scores[1] + next.scores[2] > FULL_BOARD_POINTS) {
-        next.scores[1] = 0;
-        next.scores[2] = 0;
-        next.played = [];
-      }
+      next.assignments = parsed.assignments && typeof parsed.assignments === 'object'
+        ? parsed.assignments
+        : {};
+      next.played = Array.from(new Set((Array.isArray(parsed.played) ? parsed.played : [])
+        .filter(function (id) { return typeof id === 'string'; })));
 
       return next;
     } catch (err) {
@@ -116,9 +315,53 @@
     }
   }
 
-  let state = loadState() || defaultState();
+  const savedState = readSavedState();
+  let state = savedState || defaultState();
+  let migrated = false;
+
+  let assignments = savedState ? validateAssignments(savedState.assignments) : null;
+  if (!assignments) {
+    const previousIds = savedState && savedState.assignments
+      ? Object.keys(savedState.assignments).map(function (key) { return savedState.assignments[key]; })
+      : [];
+    if (savedState) {
+      state.scores = { 1: 0, 2: 0 };
+      state.played = [];
+      state.turn = 1;
+      migrated = true;
+    }
+    assignments = drawAssignments(previousIds).assignments;
+  }
+
+  state.v = STATE_VERSION;
+  state.assignments = assignments;
+  applyAssignments(state.assignments);
+
   let playedSet = new Set(state.played);
+  const hasOrphanPlayed = Array.from(playedSet).some(function (id) { return !questionMap.has(id); });
+  if (hasOrphanPlayed) {
+    state.scores = { 1: 0, 2: 0 };
+    state.played = [];
+    playedSet = new Set();
+    migrated = true;
+  }
+
+  if (state.scores[1] + state.scores[2] > FULL_BOARD_POINTS) {
+    state.scores[1] = 0;
+    state.scores[2] = 0;
+    state.played = [];
+    playedSet = new Set();
+  }
+
   let lastSnapshot = null;
+
+  function drawNewBoard() {
+    const previous = Object.keys(state.assignments || {}).map(function (key) {
+      return state.assignments[key];
+    });
+    state.assignments = drawAssignments(previous).assignments;
+    applyAssignments(state.assignments);
+  }
 
   function hasProgress() {
     return state.scores[1] > 0 || state.scores[2] > 0 || playedSet.size > 0;
@@ -816,7 +1059,10 @@
     };
     state.icons = { 1: setupDraftIcons[1], 2: setupDraftIcons[2] };
 
-    if (restart) resetProgress({ save: false });
+    if (restart) {
+      resetProgress({ save: false });
+      drawNewBoard();
+    }
     save();
 
     teamName1.value = state.names[1];
@@ -827,7 +1073,7 @@
     closeOverlay(setupOverlay);
     setRoute(ROUTES.board);
     showScreen('game');
-    toastOpen(restart ? 'لعبة جديدة جاهزة — بالتوفيق للفريقين!' : 'بدأت اللعبة — بالتوفيق للفريقين!');
+    toastOpen(restart ? 'لعبة جديدة بتوزيع جديد — بالتوفيق للفريقين!' : 'بدأت اللعبة — بالتوفيق للفريقين!');
   }
 
   /* ===== ١١) صفحة السؤال ===== */
@@ -1125,13 +1371,14 @@
     if (!confirmed) return;
 
     resetProgress({ save: false });
+    drawNewBoard();
     save();
     ensureValidTurn();
     teamName1.value = state.names[1];
     teamName2.value = state.names[2];
     syncTeamNameLabels();
     renderAll();
-    toastOpen('لعبة جديدة جاهزة — بالتوفيق للفريقين!');
+    toastOpen('لعبة جديدة بتوزيع جديد — بالتوفيق للفريقين!');
   }
 
   /* ===== ١٥) تبديل الدور والانتقال ===== */
@@ -1405,21 +1652,36 @@
   /* ===== ١٧) تهيئة ===== */
   function validateData() {
     const seen = new Set();
+
     allQuestions.forEach(function (q) {
       if (!q.id || seen.has(q.id)) {
-        console.warn('[جيم] معرّف سؤال مكرر أو ناقص:', q);
+        console.warn('[جيم] معرّف سؤال مكرر أو ناقص في اللوحة الحالية:', q);
       }
       seen.add(q.id);
       if (!q.question || !q.answer) {
         console.warn('[جيم] سؤال بلا نص أو إجابة:', q.id);
       }
     });
+
     DOORS.forEach(function (door) {
+      const expected = door.levels.length * SLOT_OWNERS.length;
       const list = doorQuestions.get(door.id) || [];
-      if (list.length !== 6) {
-        console.warn('[جيم] الباب «' + door.name + '» يحتوي ' + list.length + ' أسئلة بدلًا من ٦.');
+      if (list.length !== expected) {
+        console.warn('[جيم] الباب «' + door.name + '» يحتوي ' + list.length +
+          ' سؤالًا على اللوحة بدلًا من ' + expected + '.');
       }
+
+      door.levels.forEach(function (points) {
+        const pool = pools.get(door.id + '|' + points) || [];
+        if (pool.length < SLOT_OWNERS.length) {
+          console.warn('[جيم] الباب «' + door.name + '» يحتاج سؤالين على الأقل في مستوى ' +
+            points + ' نقطة، والمتوفر ' + pool.length + '.');
+        }
+      });
     });
+
+    console.info('[جيم] بنك الأسئلة: ' + bankQuestions.length + ' سؤالًا موزعة على ' +
+      DOORS.length + ' أبواب، واللوحة تعرض ' + allQuestions.length + ' سؤالًا.');
   }
 
   function init() {
@@ -1451,6 +1713,13 @@
     window.addEventListener('hashchange', applyRoute);
     renderAll();
     applyRoute();
+
+    /* بعد تحديث بنك الأسئلة: نُبلغ المذيع بأن اللوحة أُعيد توزيعها */
+    if (migrated) {
+      window.setTimeout(function () {
+        toastOpen('تم تحديث بنك الأسئلة وتوزيع لوحة جديدة تلقائيًا.');
+      }, 500);
+    }
   }
 
   if (document.readyState === 'loading') {
