@@ -56,17 +56,14 @@
 
   /* ===== ٢) الحالة ===== */
   function defaultState() {
+    /* الصفحة المفتوحة يحدّدها معرّفها في الرابط، لا تُحفظ هنا */
     return {
-      v: 2,
+      v: 3,
       names: Object.assign({}, DEFAULT_NAMES),
       icons: Object.assign({}, DEFAULT_ICONS),
       scores: { 1: 0, 2: 0 },
       played: [],
-      turn: 1,
-      screen: 'home',
-      questionId: null,
-      revealed: false,
-      questionStartedAt: 0
+      turn: 1
     };
   }
 
@@ -111,25 +108,6 @@
         next.scores[1] = 0;
         next.scores[2] = 0;
         next.played = [];
-      }
-
-      /* استعادة الشاشة المفتوحة وسؤالها حتى لا يعود التحديث للرئيسية */
-      next.screen = parsed.screen === 'game' || parsed.screen === 'question' ? parsed.screen : 'home';
-      next.questionId = questionMap.has(parsed.questionId) ? parsed.questionId : null;
-      next.revealed = Boolean(parsed.revealed);
-      next.questionStartedAt = Math.max(0, Math.floor(Number(parsed.questionStartedAt) || 0));
-
-      if (next.screen === 'question') {
-        if (!next.questionId || next.played.indexOf(next.questionId) > -1) {
-          next.screen = 'game';
-          next.questionId = null;
-          next.revealed = false;
-          next.questionStartedAt = 0;
-        }
-      } else {
-        next.questionId = null;
-        next.revealed = false;
-        next.questionStartedAt = 0;
       }
 
       return next;
@@ -281,12 +259,6 @@
   const stageAnswer = $('#stageAnswer');
   const awardPts1 = $('#awardPts1');
   const awardPts2 = $('#awardPts2');
-  const qsName1 = $('#qsName1');
-  const qsName2 = $('#qsName2');
-  const qsScore1 = $('#qsScore1');
-  const qsScore2 = $('#qsScore2');
-  const qsIcon1 = $('#qsIcon1');
-  const qsIcon2 = $('#qsIcon2');
 
   const setupOverlay = $('#setupOverlay');
   const setupName1 = $('#setupName1');
@@ -313,7 +285,6 @@
 
   const toastEl = $('#toast');
   const toastText = $('#toastText');
-  const toastAction = $('#toastAction');
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -403,28 +374,15 @@
     node._raf = requestAnimationFrame(step);
   }
 
-  function toastOpen(message, options) {
-    const opts = options || {};
+  function toastOpen(message) {
     toastText.textContent = message;
-
-    if (opts.action && typeof opts.action === 'function') {
-      toastAction.hidden = false;
-      toastAction.textContent = opts.actionLabel || 'تراجع';
-      toastAction.onclick = function () {
-        toastClose();
-        opts.action();
-      };
-    } else {
-      toastAction.hidden = true;
-      toastAction.onclick = null;
-    }
 
     window.clearTimeout(toastTimer);
     toastEl.hidden = false;
     requestAnimationFrame(function () {
       toastEl.classList.add('is-open');
     });
-    toastTimer = window.setTimeout(toastClose, opts.action ? 6500 : 3800);
+    toastTimer = window.setTimeout(toastClose, 3800);
   }
 
   function toastClose() {
@@ -435,10 +393,100 @@
     }, 200);
   }
 
-  /* ===== ٦) الشاشات والنوافذ ===== */
+  /* ===== ٦) الشاشات والتوجيه ===== */
+  /* لكل صفحة معرّف مستقل في الرابط: #/ للرئيسية، #/board للوحة، #/q/<id> للسؤال */
+  const ROUTES = { home: '#/', board: '#/board' };
+  let lastRoute = null;
+
+  function safeDecode(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch (err) {
+      return value;
+    }
+  }
+
+  function questionRoute(id) {
+    return '#/q/' + encodeURIComponent(id);
+  }
+
+  function parseRoute(raw) {
+    const path = String(raw || '').replace(/^#/, '');
+    if (!path || path === '/') return { name: 'home' };
+
+    const parts = path.split('/').filter(Boolean).map(safeDecode);
+    const head = String(parts[0] || '').toLowerCase();
+
+    if (head === 'board' || head === 'game') return { name: 'board' };
+    if (head === 'q' || head === 'question') {
+      return parts[1] ? { name: 'question', id: parts[1] } : { name: 'home' };
+    }
+    return { name: 'home' };
+  }
+
+  function routeHash(route) {
+    if (route.name === 'question' && route.id) return questionRoute(route.id);
+    if (route.name === 'board') return ROUTES.board;
+    return ROUTES.home;
+  }
+
+  /* تغيير عنوان الصفحة فقط؛ الرسم يتم في مكان الاستدعاء */
+  function setRoute(hash, mode) {
+    lastRoute = hash;
+    if ((window.location.hash || '') === hash) return;
+    try {
+      if (mode === 'replace') window.history.replaceState(null, '', hash);
+      else window.history.pushState(null, '', hash);
+    } catch (err) {
+      /* بعض بيئات file:// تمنع تعديل التاريخ — يبقى التوجيه الداخلي عاملًا */
+    }
+  }
+
+  /* فتح الصفحة المطابقة للرابط الحالي (عند التحميل أو الرجوع/التقدّم) */
+  function applyRoute() {
+    const hash = window.location.hash || '';
+    const route = parseRoute(hash);
+    const canonical = routeHash(route);
+
+    if (hash !== canonical) {
+      try {
+        window.history.replaceState(null, '', canonical);
+      } catch (err) {
+        /* تجاهل: يبقى التوجيه الداخلي عاملًا */
+      }
+    }
+    if (canonical === lastRoute) return;
+    lastRoute = canonical;
+    closeAllOverlays();
+
+    if (route.name === 'question') {
+      const q = questionMap.get(route.id);
+      if (!q || playedSet.has(q.id) || gameStatus().over) {
+        if (currentQuestion) {
+          currentQuestion = null;
+          revealed = false;
+          stopCounter();
+        }
+        setRoute(ROUTES.board, 'replace');
+        showScreen('game');
+        return;
+      }
+      openQuestion(q);
+      return;
+    }
+
+    if (currentQuestion) {
+      currentQuestion = null;
+      revealed = false;
+      stopCounter();
+    }
+
+    if (route.name === 'board') showScreen('game');
+    else showScreen('home');
+  }
+
   function showScreen(name) {
     currentScreen = name;
-    state.screen = name;
     if (name !== 'question') closeBrandMenu(false);
     homeScreen.hidden = name !== 'home';
     gameScreen.hidden = name !== 'game';
@@ -521,6 +569,14 @@
     return top;
   }
 
+  /* عند الانتقال إلى صفحة أخرى تُغلق أي نافذة مفتوحة فوق الصفحة السابقة */
+  function closeAllOverlays() {
+    if (confirmResolve) resolveConfirm(false);
+    Array.from(openOverlays).forEach(function (overlay) {
+      if (overlay !== confirmOverlay) closeOverlay(overlay);
+    });
+  }
+
   function askConfirm(options) {
     confirmTitle.textContent = options.title || 'تأكيد';
     confirmText.textContent = options.text || '';
@@ -546,22 +602,12 @@
     setIcon(badge2, state.icons[2]);
   }
 
-  function renderQuestionScore() {
-    if (qsName1) qsName1.textContent = state.names[1];
-    if (qsName2) qsName2.textContent = state.names[2];
-    if (qsScore1) qsScore1.textContent = formatNumber(state.scores[1]);
-    if (qsScore2) qsScore2.textContent = formatNumber(state.scores[2]);
-    setIcon(qsIcon1, state.icons[1]);
-    setIcon(qsIcon2, state.icons[2]);
-  }
-
   function renderScoreboard() {
     const status = gameStatus();
 
     animateScore(score1El, state.scores[1]);
     animateScore(score2El, state.scores[2]);
     renderTeamBadges();
-    renderQuestionScore();
 
     teamCard1.classList.toggle('is-active', !status.over && state.turn === 1);
     teamCard2.classList.toggle('is-active', !status.over && state.turn === 2);
@@ -779,6 +825,7 @@
     renderAll();
 
     closeOverlay(setupOverlay);
+    setRoute(ROUTES.board);
     showScreen('game');
     toastOpen(restart ? 'لعبة جديدة جاهزة — بالتوفيق للفريقين!' : 'بدأت اللعبة — بالتوفيق للفريقين!');
   }
@@ -832,9 +879,8 @@
     });
   }
 
-  function openQuestion(q, options) {
+  function openQuestion(q) {
     if (!q) return;
-    const opts = options || {};
     currentQuestion = q;
     revealed = false;
 
@@ -848,7 +894,6 @@
     qNote.textContent = q.hint || '';
 
     buildMedia(q);
-    renderQuestionScore();
 
     answerBlock.hidden = true;
     aText.textContent = '';
@@ -857,32 +902,13 @@
     awardPts1.textContent = '+' + formatNumber(q.points);
     awardPts2.textContent = '+' + formatNumber(q.points);
 
-    if (opts.resume) {
-      state.questionStartedAt = state.questionStartedAt > 0 ? state.questionStartedAt : Date.now();
-      if (state.revealed) {
-        revealed = true;
-        aText.textContent = q.answer;
-        answerBlock.hidden = false;
-        stageQuestion.hidden = true;
-        stageAnswer.hidden = false;
-      }
-    } else {
-      state.questionStartedAt = Date.now();
-      state.revealed = false;
-    }
-
-    state.questionId = q.id;
-
+    setRoute(questionRoute(q.id));
     if (qBody) qBody.scrollTop = 0;
 
     showScreen('question');
-    startCounter(state.questionStartedAt);
+    startCounter(Date.now());
 
     window.setTimeout(function () {
-      if (revealed) {
-        if (questionPage) questionPage.focus({ preventScroll: true });
-        return;
-      }
       const revealBtn = $('#btnReveal');
       if (revealBtn) revealBtn.focus({ preventScroll: true });
     }, 60);
@@ -891,12 +917,10 @@
   function revealAnswer() {
     if (!currentQuestion || revealed) return;
     revealed = true;
-    state.revealed = true;
     aText.textContent = currentQuestion.answer;
     answerBlock.hidden = false;
     stageQuestion.hidden = true;
     stageAnswer.hidden = false;
-    save();
 
     requestAnimationFrame(function () {
       answerBlock.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
@@ -910,9 +934,6 @@
     currentQuestion = null;
     revealed = false;
     stopCounter();
-    state.questionId = null;
-    state.revealed = false;
-    state.questionStartedAt = 0;
     showScreen('game');
   }
 
@@ -920,6 +941,7 @@
     if (!currentQuestion) return;
     const id = currentQuestion.id;
     finishQuestionView();
+    setRoute(ROUTES.board, 'replace');
     const btn = boardEl.querySelector('.qbtn[data-id="' + id + '"]');
     window.setTimeout(function () {
       if (btn && !btn.disabled) btn.focus({ preventScroll: true });
@@ -956,7 +978,10 @@
     closeBrandMenu(false);
     if (action === 'board') {
       if (currentQuestion) closeQuestion();
-      else showScreen('game');
+      else {
+        setRoute(ROUTES.board, 'replace');
+        showScreen('game');
+      }
     } else if (action === 'help') {
       openOverlay(helpOverlay, $('.dialog--help .btn--primary'));
     } else if (action === 'home') {
@@ -1009,13 +1034,14 @@
     save();
 
     finishQuestionView();
+    setRoute(ROUTES.board, 'replace');
     renderAll();
 
     const message = winner
       ? 'أُضيفت ' + formatNumber(q.points) + ' نقطة إلى ' + state.names[winner] + ' — ' + q.doorName
       : 'لم تُمنح نقاط في سؤال ' + q.doorName;
 
-    toastOpen(message, { action: undoLast, actionLabel: 'تراجع' });
+    toastOpen(message);
 
     const status = gameStatus();
     if (status.over) {
@@ -1130,6 +1156,7 @@
 
   function goHome() {
     if (currentQuestion) finishQuestionView();
+    setRoute(ROUTES.home);
     updateHomeStatus();
     showScreen('home');
   }
@@ -1262,7 +1289,6 @@
         state.names[team] = cleanName(input.value, team);
         save();
         syncTeamNameLabels();
-        renderQuestionScore();
         if (!gameStatus().over) {
           turnNameEl.textContent = state.names[state.turn];
         }
@@ -1396,18 +1422,10 @@
     });
   }
 
-  function restoreScreen() {
-    const savedQuestion = state.questionId ? questionMap.get(state.questionId) : null;
-    if (state.screen === 'question' && savedQuestion && !playedSet.has(savedQuestion.id)) {
-      openQuestion(savedQuestion, { resume: true });
-      return;
-    }
-    showScreen(state.screen === 'game' ? 'game' : 'home');
-  }
-
   function init() {
     if (!DOORS.length) {
       boardEl.innerHTML = '<p class="empty">لم يتم العثور على بيانات الأبواب. تأكد من تحميل ملفات مجلد data/.</p>';
+      setRoute(ROUTES.home, 'replace');
       showScreen('home');
       return;
     }
@@ -1429,8 +1447,10 @@
 
     ensureValidTurn();
     bindEvents();
+    window.addEventListener('popstate', applyRoute);
+    window.addEventListener('hashchange', applyRoute);
     renderAll();
-    restoreScreen();
+    applyRoute();
   }
 
   if (document.readyState === 'loading') {

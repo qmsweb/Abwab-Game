@@ -1013,60 +1013,6 @@ h1, h2, h3, p { margin: 0; }
   text-align: center;
 }
 
-.qpage__score {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.qscore {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  padding: 9px 13px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-
-.qscore__icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--team-1);
-  border: 1px solid var(--line-2);
-}
-.qscore--2 .qscore__icon { background: var(--team-2); }
-.qscore__icon .icon { width: 18px; height: 18px; }
-
-.qscore__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.qscore__score {
-  font-size: 1.45rem;
-  font-weight: 700;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.qpage__vs {
-  color: var(--muted-2);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
 .qpage__body {
   flex: 1;
   display: flex;
@@ -1434,18 +1380,6 @@ kbd {
 .toast.is-open { opacity: 1; transform: none; }
 
 .toast__text { min-width: 0; }
-.toast__action {
-  flex: 0 0 auto;
-  padding: 3px 10px;
-  border: 1px solid var(--line-3);
-  border-radius: 8px;
-  background: transparent;
-  color: #FFFFFF;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-.toast__action:hover { background: rgba(255, 255, 255, 0.1); }
 
 /* ===== بدون JS ===== */
 .noscript {
@@ -1534,12 +1468,6 @@ kbd {
   .qpage__menu { min-width: 190px; }
   .qpage__timer { padding: 6px 12px; }
   .qpage__timer-label { display: none; }
-  .qpage__score { gap: 6px; }
-  .qscore { padding: 8px 9px; gap: 7px; }
-  .qscore__icon { width: 29px; height: 29px; }
-  .qscore__icon .icon { width: 15px; height: 15px; }
-  .qscore__name { font-size: 0.78rem; }
-  .qscore__score { font-size: 1.12rem; }
   .qpage__body { padding: 15px 12px; }
 
   .topbar { padding-block: 2px 10px; gap: 8px; }
@@ -1584,8 +1512,6 @@ kbd {
   .board-points__label { font-size: 0.62rem; }
   .q-text { font-size: 1.2rem; }
   .media { min-height: 120px; }
-  .qpage__vs { display: none; }
-  .qpage__score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dialog__head { padding: 10px 12px; }
   .dialog__body { padding: 12px; }
   .dialog__foot { padding: 10px 12px; }
