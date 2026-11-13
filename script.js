@@ -49,6 +49,14 @@
     return normalizeText(q.question) + '|' + normalizeText(q.answer);
   }
 
+  /* أنواع الوسائط المدعومة: نص، صورة/صور، ومقطع صوتي (mp3) */
+  function normalizeQuestionType(value) {
+    const type = String(value == null ? '' : value).trim().toLowerCase();
+    if (type === 'image' || type === 'images') return type;
+    if (type === 'audio' || type === 'sound' || type === 'mp3') return 'audio';
+    return 'text';
+  }
+
   function resolveDifficulty(raw, levels) {
     const value = raw.difficulty != null ? raw.difficulty : raw.level;
     if (typeof value === 'string') {
@@ -91,7 +99,7 @@
       q.points = door.levels[difficulty - 1];
       q.doorId = door.id;
       q.doorName = door.name;
-      q.type = q.type === 'image' || q.type === 'images' ? q.type : 'text';
+      q.type = normalizeQuestionType(q.type);
       q.question = String(q.question == null ? '' : q.question).trim();
       q.answer = String(q.answer == null ? '' : q.answer).trim();
       q.id = String(q.id == null ? '' : q.id).trim();
@@ -735,7 +743,10 @@
     gameScreen.hidden = name !== 'game';
     questionPage.hidden = name !== 'question';
     siteFooter.hidden = name === 'question';
-    if (name !== 'question') stopCounter();
+    if (name !== 'question') {
+      stopCounter();
+      stopMediaPlayback();
+    }
     if (name === 'home') updateHomeStatus();
     window.scrollTo(0, 0);
     save();
@@ -1077,51 +1088,164 @@
   }
 
   /* ===== ١١) صفحة السؤال ===== */
-  function buildMedia(q) {
-    let items = [];
+  function stopMediaPlayback() {
+    if (!qMedia) return;
+    Array.prototype.forEach.call(qMedia.querySelectorAll('audio'), function (player) {
+      try {
+        player.pause();
+      } catch (err) {
+        /* تجاهل: بعض المتصفحات تمنع الإيقاف قبل بدء التحميل */
+      }
+    });
+  }
+
+  function imageMediaItems(q) {
+    const items = [];
+
     if (Array.isArray(q.images) && q.images.length) {
-      items = q.images.slice();
+      q.images.forEach(function (raw) {
+        if (typeof raw === 'string') {
+          items.push({ src: raw, alt: q.imageAlt || '', hint: q.hint || '' });
+        } else if (raw && typeof raw === 'object') {
+          items.push({
+            src: raw.src || raw.image || '',
+            alt: raw.alt || q.imageAlt || '',
+            hint: raw.hint || q.hint || ''
+          });
+        }
+      });
     } else if (q.image) {
-      items = [{ src: q.image, alt: q.imageAlt || '', hint: q.hint || '' }];
+      items.push({ src: q.image, alt: q.imageAlt || '', hint: q.hint || '' });
     } else if (q.type === 'image' || q.type === 'images') {
-      items = [{ src: '', alt: q.imageAlt || '', hint: q.hint || '' }];
+      items.push({ src: '', alt: q.imageAlt || '', hint: q.hint || '' });
     }
 
+    return items;
+  }
+
+  function audioMediaItems(q) {
+    const items = [];
+    const push = function (raw) {
+      if (typeof raw === 'string') {
+        items.push({ src: raw, label: q.audioLabel || '', hint: q.hint || '' });
+      } else if (raw && typeof raw === 'object') {
+        items.push({
+          src: raw.src || raw.audio || '',
+          label: raw.label || raw.title || q.audioLabel || '',
+          hint: raw.hint || q.hint || ''
+        });
+      }
+    };
+
+    if (Array.isArray(q.audios) && q.audios.length) {
+      q.audios.forEach(push);
+    } else if (q.audio) {
+      push(q.audio);
+    } else if (q.type === 'audio') {
+      items.push({ src: '', label: q.audioLabel || '', hint: q.hint || '' });
+    }
+
+    return items;
+  }
+
+  function buildImageTile(item) {
+    const tile = el('div', 'media');
+    const placeholder = el('div', 'media__placeholder');
+    placeholder.appendChild(makeIcon('image'));
+    if (item.hint) placeholder.appendChild(el('span', 'media__hint', item.hint));
+    placeholder.appendChild(el('span', 'media__caption', item.src ? 'الصورة غير متاحة حاليًا' : 'مكان الصورة'));
+    tile.appendChild(placeholder);
+
+    if (item.src) {
+      const img = document.createElement('img');
+      img.className = 'media__img';
+      img.alt = item.alt || '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.addEventListener('load', function () {
+        tile.classList.add('is-loaded');
+      });
+      img.addEventListener('error', function () {
+        img.remove();
+      });
+      img.src = item.src;
+      tile.insertBefore(img, placeholder);
+    }
+
+    return tile;
+  }
+
+  function buildAudioTile(item) {
+    const tile = el('div', 'media media--audio');
+    const card = el('div', 'audio');
+
+    const head = el('div', 'audio__head');
+    head.appendChild(makeIcon('sound'));
+    head.appendChild(el('span', 'audio__title', item.label || 'مقطع صوتي'));
+
+    const body = el('div', 'audio__body');
+    body.appendChild(head);
+
+    if (item.src) {
+      const player = document.createElement('audio');
+      player.className = 'audio__player';
+      player.controls = true;
+      player.preload = 'metadata';
+      player.src = item.src;
+      player.setAttribute('aria-label', item.label || 'مشغل المقطع الصوتي');
+      body.appendChild(player);
+
+      const fallback = el('div', 'audio__fallback', 'تعذّر تشغيل الملف الصوتي — تأكد من وجود الملف في مجلد audio/');
+      fallback.hidden = true;
+      body.appendChild(fallback);
+
+      player.addEventListener('error', function () {
+        player.hidden = true;
+        fallback.hidden = false;
+        tile.classList.add('is-unavailable');
+      });
+      player.addEventListener('play', function () {
+        tile.classList.add('is-playing');
+      });
+      ['pause', 'ended'].forEach(function (eventName) {
+        player.addEventListener(eventName, function () {
+          tile.classList.remove('is-playing');
+        });
+      });
+    } else {
+      body.appendChild(el('div', 'audio__fallback', 'مكان الملف الصوتي (mp3)'));
+      tile.classList.add('is-unavailable');
+    }
+
+    if (item.hint) body.appendChild(el('p', 'audio__hint', item.hint));
+
+    card.appendChild(body);
+    tile.appendChild(card);
+    return tile;
+  }
+
+  function buildMedia(q) {
+    stopMediaPlayback();
     qMedia.replaceChildren();
-    if (!items.length) {
+
+    const images = imageMediaItems(q);
+    const audios = audioMediaItems(q);
+    const total = images.length + audios.length;
+
+    if (!total) {
       qMedia.hidden = true;
       delete qMedia.dataset.count;
       return;
     }
 
     qMedia.hidden = false;
-    qMedia.dataset.count = String(items.length);
+    qMedia.dataset.count = String(total);
 
-    items.forEach(function (item) {
-      const tile = el('div', 'media');
-      const placeholder = el('div', 'media__placeholder');
-      placeholder.appendChild(makeIcon('image'));
-      if (item.hint) placeholder.appendChild(el('span', 'media__hint', item.hint));
-      placeholder.appendChild(el('span', 'media__caption', item.src ? 'الصورة غير متاحة حاليًا' : 'مكان الصورة'));
-      tile.appendChild(placeholder);
-
-      if (item.src) {
-        const img = document.createElement('img');
-        img.className = 'media__img';
-        img.alt = item.alt || '';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        img.addEventListener('load', function () {
-          tile.classList.add('is-loaded');
-        });
-        img.addEventListener('error', function () {
-          img.remove();
-        });
-        img.src = item.src;
-        tile.insertBefore(img, placeholder);
-      }
-
-      qMedia.appendChild(tile);
+    images.forEach(function (item) {
+      qMedia.appendChild(buildImageTile(item));
+    });
+    audios.forEach(function (item) {
+      qMedia.appendChild(buildAudioTile(item));
     });
   }
 
@@ -1136,7 +1260,9 @@
     qOwner.dataset.owner = String(q.owner);
     qText.textContent = q.question;
 
-    qNote.hidden = !q.hint || q.type === 'image';
+    const hasAudio = q.type === 'audio' || !!q.audio ||
+      (Array.isArray(q.audios) && q.audios.length > 0);
+    qNote.hidden = !q.hint || q.type === 'image' || hasAudio;
     qNote.textContent = q.hint || '';
 
     buildMedia(q);
@@ -1180,6 +1306,7 @@
     currentQuestion = null;
     revealed = false;
     stopCounter();
+    stopMediaPlayback();
     showScreen('game');
   }
 

@@ -30,12 +30,12 @@ GAME MECHANICS & LOGIC:
    - Return to the main board. The played button becomes disabled/grayed out.
 
 CATEGORY SPECIFICATIONS (Mock Data structure required):
-- General Questions: Text prompt -> Text answer.
-- Biographies: An image placeholder or text hinting at a famous Arab/International figure -> Text answer.
+- General Questions: Text prompt -> Text answer, with optional image or mp3 audio clip.
+- Biographies: An image placeholder, mp3 audio clip, or text hinting at a famous Arab/International figure -> Text answer.
 - Images: Multiple image placeholders (hinting at a word, phrase, or proverb) -> Text answer.
 - Arabic Language: Text questions about Arabic sciences -> Text answer.
 - Letters: Standard Text -> Text answer.
-(Note to developer: Create a robust JSON-like structure in JS so the user can easily replace placeholders with real images and text later).
+(Note to developer: Create a robust JSON-like structure in JS so the user can easily replace placeholders with real images, audio, and text later).
 
 WINNING CONDITIONS & ENDGAME:
 - The primary goal is to finish all available categories with a higher score.

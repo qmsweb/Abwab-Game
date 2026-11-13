@@ -9,6 +9,8 @@
    ويمكن استخدام level: 1/2/3 أو points: 100/200/300 بدلًا منها.
    كل سؤال يحتاج: id فريد، question، answer، ودائمتًّا difficulty.
    لا تكرر السؤال نفسه في الباب نفسه أو في الأبواب الأخرى.
+   أنواع الوسائط: type: 'text' (نص فقط) أو 'image'/'images' (صور)
+   أو 'audio' مع audio: 'audio/file.mp3' (مشغل صوت المتصفح).
    ============================================================ */
 window.JEEM_DOORS = window.JEEM_DOORS || [];
 
@@ -133,6 +135,19 @@ window.JEEM_DOORS.push({
       type: 'text',
       question: 'ما الدولة المعروفة ببلاد الشمس المشرقة؟',
       answer: 'اليابان'
+    },
+    /* ===== سؤال صوتي تجريبي (mp3) =====
+       type: 'audio' + audio: مسار الملف داخل مجلد audio/
+       يمكن إضافة hint وaudioLabel اختياريًا. */
+    {
+      id: 'general-m9',
+      difficulty: 2,
+      type: 'audio',
+      audio: 'audio/demo-general.mp3',
+      audioLabel: 'لحن موسيقي',
+      hint: 'لحن مشهور جدًا يُعزف في مناسبة سنوية يحتفل بها الناس.',
+      question: 'استمع إلى اللحن، ما المناسبة التي تُعزف لها هذه الأغنية عادةً؟',
+      answer: 'عيد ميلاد سعيد (Happy Birthday)'
     },
 
     /* ===== المستوى الثالث: صعب (300) ===== */

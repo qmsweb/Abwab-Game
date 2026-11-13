@@ -1146,6 +1146,60 @@ h1, h2, h3, p { margin: 0; }
   padding-top: 3px;
 }
 
+/* المقطع الصوتي (mp3) */
+.media--audio {
+  display: block;
+  grid-column: 1 / -1;
+  min-height: 0;
+  padding: 14px;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: start;
+}
+.q-media[data-count="1"] .media--audio { min-height: 0; }
+.media--audio .audio { width: 100%; }
+.audio__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.audio__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.audio__head .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+.media--audio.is-playing .audio__head .icon { color: var(--text); }
+.audio__player {
+  width: 100%;
+  height: 44px;
+  display: block;
+  color-scheme: dark;
+  accent-color: var(--brand-2);
+}
+.audio__fallback {
+  padding: 10px 12px;
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+.audio__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
 .q-note {
   padding: 10px 14px;
   border-inline-start: 3px solid var(--line-3);
